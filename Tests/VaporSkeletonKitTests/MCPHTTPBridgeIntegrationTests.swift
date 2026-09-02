@@ -19,8 +19,8 @@ private struct EchoTool: MCPTool {
     }
 }
 
-@Suite("MCP HTTP Bridge Tests")
-struct MCPHTTPBridgeTests {
+@Suite("MCP HTTP Bridge Integration Tests")
+struct MCPHTTPBridgeIntegrationTests {
     @Test("Mounts route and responds to requests")
     func testMountRoute() async throws {
         let app = try await Application.make(.testing)
@@ -54,9 +54,31 @@ struct MCPHTTPBridgeTests {
             req.headers.replaceOrAdd(name: .accept, value: "application/json")
         } afterResponse: { res in
             #expect(res.status == .ok)
-            let body = res.body.string
-            #expect(body.contains("protocolVersion"))
-            #expect(body.contains("2024-11-05"))
+            
+            struct InitializeResponse: Decodable {
+                let jsonrpc: String
+                let id: String
+                let result: ResultBody
+                
+                struct ResultBody: Decodable {
+                    let protocolVersion: String
+                    let serverInfo: ServerInfo
+                }
+                
+                struct ServerInfo: Decodable {
+                    let name: String
+                    let version: String
+                }
+            }
+            
+            let data = Data(buffer: res.body)
+            let response = try JSONDecoder().decode(InitializeResponse.self, from: data)
+            
+            #expect(response.jsonrpc == "2.0")
+            #expect(response.id == "1")
+            #expect(response.result.protocolVersion == "2024-11-05")
+            #expect(response.result.serverInfo.name == "TestServer")
+            #expect(response.result.serverInfo.version == "1.0")
         }
         
         try await app.asyncShutdown()
