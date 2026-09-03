@@ -27,6 +27,24 @@ public struct E2EHTTPClient: Sendable {
     public struct Response: Sendable {
         public let status: Int
         public let body: Data
+        /// Nombres de cabecera en minúsculas — HTTP no distingue mayúsculas en los
+        /// nombres, así que quien consulte esto no debería tener que adivinar cómo
+        /// capitalizó el servidor cada una (p. ej. `headers["content-type"]`, nunca
+        /// `headers["Content-Type"]`).
+        public let headers: [String: String]
+    }
+
+    /// Qué mandar como cabecera `Authorization` en una petición concreta. `.default`
+    /// (el caso implícito de todos los métodos de abajo) llama a la función `authToken`
+    /// dada al inicializador — así la inmensa mayoría de los escenarios (que no prueban
+    /// auth en sí, solo dependen de que la petición llegue) no necesitan saber nada de
+    /// esto. `.none`/`.bearer` son para los escenarios que sí prueban auth: ausencia de
+    /// cabecera, o un token concreto (inválido, expirado...) en vez del que produciría
+    /// `authToken`.
+    public enum Authorization: Sendable {
+        case `default`
+        case none
+        case bearer(String)
     }
 
     public let baseURL: URL
@@ -35,11 +53,11 @@ public struct E2EHTTPClient: Sendable {
 
     /// - Parameters:
     ///   - baseURL: El servidor con el que hablar. Por defecto, ``E2EEnvironment/baseURL``.
-    ///   - authToken: Produce el bearer token que se adjunta a las peticiones
-    ///     autenticadas, o `nil` para no enviar ninguna cabecera `Authorization`. Se
-    ///     llama en cada petición autenticada, sin cachear el resultado — esta función
-    ///     no asume ningún paquete de autenticación en concreto. Por defecto, nunca
-    ///     adjunta ningún token.
+    ///   - authToken: Produce el bearer token que se adjunta a una petición cuando su
+    ///     ``Authorization-swift.enum`` es `.default`, o `nil` para no enviar ninguna
+    ///     cabecera `Authorization`. Se llama en cada petición `.default`, sin cachear
+    ///     el resultado — esta función no asume ningún paquete de autenticación en
+    ///     concreto. Por defecto, nunca adjunta ningún token.
     ///   - session: La `URLSession` sobre la que emitir las peticiones. Por defecto,
     ///     `.shared`; sobreescribible en tests.
     public init(
@@ -52,36 +70,87 @@ public struct E2EHTTPClient: Sendable {
         self.session = session
     }
 
-    /// Envía una petición, adjuntando opcionalmente `Authorization: Bearer <token>`
-    /// desde ``authToken``.
+    /// Envía una petición con un cuerpo arbitrario (o sin cuerpo) y un `Content-Type`
+    /// explícito.
     ///
-    /// - Parameter authenticated: Pasa `false` para omitir el token deliberadamente,
-    ///   incluso si ``authToken`` produciría uno — usado por los escenarios que
-    ///   verifican que se rechazan las peticiones no autenticadas.
+    /// - Parameter contentType: Ignorado si `body` es `nil`. Por defecto
+    ///   `application/json` — pásalo explícitamente para probar el rechazo de un
+    ///   `Content-Type` incompatible (la única vía para mandar otra cosa, ya que las
+    ///   demás sobrecargas de este cliente fijan `application/json` a propósito).
     @discardableResult
     public func send(
         _ method: String,
         _ path: String,
         body: Data? = nil,
-        authenticated: Bool = true
+        contentType: String = "application/json",
+        authorization: Authorization = .default
     ) async throws -> Response {
         var request = URLRequest(url: baseURL.appendingPathComponent(path))
         request.httpMethod = method
-        request.httpBody = body
-        if body != nil {
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let body {
+            request.httpBody = body
+            request.setValue(contentType, forHTTPHeaderField: "Content-Type")
         }
-        if authenticated, let token = try await authToken() {
+        switch authorization {
+        case .default:
+            if let token = try await authToken() {
+                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            }
+        case .none:
+            break
+        case .bearer(let token):
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
         let (data, response) = try await session.data(for: request)
-        let status = (response as? HTTPURLResponse)?.statusCode ?? -1
-        return Response(status: status, body: data)
+        guard let http = response as? HTTPURLResponse else {
+            throw E2EHTTPError.unexpectedStatus(-1, body: String(decoding: data, as: UTF8.self))
+        }
+        let headers = Dictionary(
+            uniqueKeysWithValues: http.allHeaderFields.compactMap { key, value -> (String, String)? in
+                guard let name = key as? String, let stringValue = value as? String else { return nil }
+                return (name.lowercased(), stringValue)
+            }
+        )
+        return Response(status: http.statusCode, body: data, headers: headers)
     }
 
-    public func get(_ path: String, authenticated: Bool = true) async throws -> Response {
-        try await send("GET", path, authenticated: authenticated)
+    public func get(_ path: String, authorization: Authorization = .default) async throws -> Response {
+        try await send("GET", path, authorization: authorization)
+    }
+
+    /// Para endpoints sin cuerpo (p. ej. una acción `POST .../undo`).
+    @discardableResult
+    public func post(_ path: String, authorization: Authorization = .default) async throws -> Response {
+        try await send("POST", path, authorization: authorization)
+    }
+
+    @discardableResult
+    public func post(_ path: String, json body: Data, authorization: Authorization = .default) async throws
+        -> Response
+    {
+        try await send("POST", path, body: body, authorization: authorization)
+    }
+
+    @discardableResult
+    public func post(
+        _ path: String, encoding body: some Encodable, authorization: Authorization = .default
+    ) async throws -> Response {
+        try await post(path, json: try JSONEncoder.e2e.encode(body), authorization: authorization)
+    }
+
+    @discardableResult
+    public func put(_ path: String, json body: Data, authorization: Authorization = .default) async throws
+        -> Response
+    {
+        try await send("PUT", path, body: body, authorization: authorization)
+    }
+
+    @discardableResult
+    public func put(
+        _ path: String, encoding body: some Encodable, authorization: Authorization = .default
+    ) async throws -> Response {
+        try await put(path, json: try JSONEncoder.e2e.encode(body), authorization: authorization)
     }
 
     /// Envía un `POST` con un cuerpo codificado en JSON y decodifica una respuesta
@@ -90,20 +159,19 @@ public struct E2EHTTPClient: Sendable {
         _ path: String,
         json: Body,
         as: Decoded.Type,
-        authenticated: Bool = true
+        authorization: Authorization = .default
     ) async throws -> Decoded {
-        let body = try JSONEncoder.e2e.encode(json)
-        let response = try await send("POST", path, body: body, authenticated: authenticated)
+        let response = try await post(path, json: try JSONEncoder.e2e.encode(json), authorization: authorization)
         guard response.status == 200 else {
             throw E2EHTTPError.unexpectedStatus(response.status, body: String(decoding: response.body, as: UTF8.self))
         }
         return try JSONDecoder.e2e.decode(Decoded.self, from: response.body)
     }
 
-    public func get<Decoded: Decodable>(_ path: String, as: Decoded.Type, authenticated: Bool = true) async throws
-        -> Decoded
-    {
-        let response = try await get(path, authenticated: authenticated)
+    public func get<Decoded: Decodable>(
+        _ path: String, as: Decoded.Type, authorization: Authorization = .default
+    ) async throws -> Decoded {
+        let response = try await get(path, authorization: authorization)
         guard response.status == 200 else {
             throw E2EHTTPError.unexpectedStatus(response.status, body: String(decoding: response.body, as: UTF8.self))
         }
