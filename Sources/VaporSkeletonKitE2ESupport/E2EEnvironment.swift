@@ -1,11 +1,12 @@
 import Foundation
 
-/// Where an E2E suite finds the server under test — real HTTP/MCP over the network via
-/// ``E2EHTTPClient``/``E2EMCPClient``, never an in-process `Application`.
+/// Dónde encuentra una suite E2E el servidor bajo test — HTTP/MCP real a través de la
+/// red vía ``E2EHTTPClient``/``E2EMCPClient``, nunca una `Application` en proceso.
 ///
-/// Reads `E2E_BASE_URL`, defaulting to `swift run`'s default local address so E2E tests
-/// work against a manually started server. CI typically points this at a container
-/// running the production Docker image instead.
+/// Lee `E2E_BASE_URL`, con la dirección local por defecto de `swift run` como valor por
+/// defecto, de modo que los tests E2E funcionen contra un servidor arrancado a mano. En
+/// CI, esto normalmente apunta a un contenedor que ejecuta la imagen Docker de
+/// producción.
 public enum E2EEnvironment {
     public static var baseURL: URL {
         URL(string: ProcessInfo.processInfo.environment["E2E_BASE_URL"] ?? "http://127.0.0.1:8080")!

@@ -1,26 +1,27 @@
 import MCP
 import Vapor
 
-/// Mounts an MCP server at `POST/GET/DELETE <path>` (`/mcp` by default), bridging
-/// Vapor's HTTP types to the framework-agnostic `MCP.HTTPRequest`/`HTTPResponse` types
-/// used by `StatelessHTTPServerTransport`.
+/// Monta un servidor MCP en `POST/GET/DELETE <path>` (`/mcp` por defecto), haciendo de
+/// puente entre los tipos HTTP de Vapor y los tipos `MCP.HTTPRequest`/`HTTPResponse`,
+/// agnósticos de framework, que usa `StatelessHTTPServerTransport`.
 ///
-/// This file is the only place that needs to know both "Vapor" and "MCP transport" —
-/// `MCPTool`/`MCPResource`/`MCPServerFactory` don't import Vapor at all.
+/// Este fichero es el único lugar que necesita conocer tanto "Vapor" como "transporte
+/// MCP" — `MCPTool`/`MCPResource`/`MCPServerFactory` no importan Vapor en absoluto.
 ///
-/// `Request`/`Response` are spelled out as `Vapor.Request`/`Vapor.Response` throughout
-/// this file because the `MCP` module also exports generic `Request<M>`/`Response<M>`
-/// JSON-RPC message types of its own, which would otherwise be ambiguous.
+/// `Request`/`Response` se escriben explícitamente como `Vapor.Request`/`Vapor.Response`
+/// en todo este fichero porque el módulo `MCP` también exporta sus propios tipos
+/// genéricos de mensaje JSON-RPC `Request<M>`/`Response<M>`, que de otro modo serían
+/// ambiguos.
 ///
 /// - Parameters:
-///   - app: The `Application` to mount the route on.
-///   - name: The name the MCP server advertises to any client that connects.
-///   - version: The server's version string.
-///   - instructions: Free-text guidance shown to the connecting model about what this
-///     server's tools/resources are for.
-///   - tools: The tools to expose via `tools/list`/`tools/call`.
-///   - resources: The resources to expose via `resources/list`/`resources/read`.
-///   - path: The route path to mount the server on. Defaults to `"mcp"`.
+///   - app: La `Application` sobre la que montar la ruta.
+///   - name: El nombre que el servidor anuncia a cualquier cliente que se conecte.
+///   - version: La cadena de versión del servidor.
+///   - instructions: Guía en texto libre mostrada al modelo conectado sobre para qué
+///     sirven las herramientas/recursos de este servidor.
+///   - tools: Las herramientas a exponer vía `tools/list`/`tools/call`.
+///   - resources: Los recursos a exponer vía `resources/list`/`resources/read`.
+///   - path: La ruta sobre la que montar el servidor. Por defecto, `"mcp"`.
 public func mountMCPServer(
     _ app: Application,
     name: String,
@@ -44,15 +45,17 @@ public func mountMCPServer(
     )
 }
 
-/// Handles a single HTTP request against the MCP route by spinning up a fresh, isolated
-/// `MCP.Server` + `StatelessHTTPServerTransport` pair, running the request through it,
-/// and tearing it back down.
+/// Maneja una única petición HTTP contra la ruta MCP levantando un par
+/// `MCP.Server` + `StatelessHTTPServerTransport` nuevo y aislado, ejecutando la
+/// petición a través de él, y desmontándolo de nuevo.
 ///
-/// A single long-lived `MCP.Server` cannot be reused across independent MCP clients in
-/// stateless mode: the SDK rejects a second `initialize` call on an already-initialized
-/// server, and stateless mode carries no session id to tell clients apart. Building a new
-/// (cheap, in-memory) server per request keeps every request fully isolated, which is the
-/// correct pattern for a stateless transport serving multiple, unrelated remote clients.
+/// Un único `MCP.Server` de larga duración no se puede reutilizar entre clientes MCP
+/// independientes en modo stateless: el SDK rechaza una segunda llamada a `initialize`
+/// sobre un servidor ya inicializado, y el modo stateless no lleva ningún id de sesión
+/// que permita distinguir entre clientes. Construir un servidor nuevo (barato, en
+/// memoria) por petición mantiene cada petición completamente aislada, que es el patrón
+/// correcto para un transporte stateless que sirve a múltiples clientes remotos y sin
+/// relación entre sí.
 private func handleMCPRequest(
     _ req: Vapor.Request,
     name: String,
@@ -63,13 +66,14 @@ private func handleMCPRequest(
 ) async throws -> Vapor.Response {
     let mcpRequest = MCP.HTTPRequest(vaporRequest: req)
 
-    // Authentication (if any) happens one layer up, in whatever middleware the caller
-    // attaches to `app` before calling `mountMCPServer` — shared with the rest of the
-    // app instead of MCP having its own separate check — rather than through the MCP
-    // SDK's own `HTTPRequestValidator` pipeline: that pipeline is synchronous, but
-    // verifying a bearer token against a remote JWKS is inherently asynchronous, and
-    // Vapor's middleware chain already runs (and can reject the request) before this
-    // handler is ever invoked.
+    // La autenticación (si la hay) ocurre una capa por encima, en el middleware que sea
+    // que el llamador adjunte a `app` antes de llamar a `mountMCPServer` — compartida
+    // con el resto de la app en lugar de que MCP tenga su propia comprobación separada
+    // — en vez de a través del propio pipeline `HTTPRequestValidator` del SDK de MCP:
+    // ese pipeline es síncrono, pero verificar un bearer token contra un JWKS remoto es
+    // inherentemente asíncrono, y la cadena de middleware de Vapor ya se ejecuta (y
+    // puede rechazar la petición) antes de que este handler llegue siquiera a
+    // invocarse.
     let validators: [any HTTPRequestValidator] = [
         OriginValidator.disabled,
         AcceptHeaderValidator(mode: .jsonOnly),
@@ -92,15 +96,17 @@ private func handleMCPRequest(
 }
 
 extension MCP.HTTPRequest {
-    /// Converts a Vapor request into the framework-agnostic request type the MCP
-    /// transport expects. Assumes the route was registered with `body: .collect` so the
-    /// full body is already buffered and synchronously available.
+    /// Convierte una petición de Vapor en el tipo de petición agnóstico de framework
+    /// que espera el transporte MCP. Asume que la ruta se registró con
+    /// `body: .collect`, de modo que el cuerpo completo ya está bufferizado y
+    /// disponible de forma síncrona.
     fileprivate init(vaporRequest req: Vapor.Request) {
         var headers: [String: String] = [:]
         for (name, value) in req.headers {
-            // Case-insensitive lookup is handled by `HTTPRequest.header(_:)`; first
-            // occurrence wins, matching how the validators only ever read single-value
-            // headers (Accept, Content-Type, Authorization, session id, etc).
+            // La búsqueda insensible a mayúsculas la gestiona
+            // `HTTPRequest.header(_:)`; gana la primera aparición, igual que hacen los
+            // validadores, que solo leen cabeceras de valor único (Accept,
+            // Content-Type, Authorization, id de sesión, etc).
             if headers[name] == nil {
                 headers[name] = value
             }
@@ -118,7 +124,7 @@ extension MCP.HTTPRequest {
 }
 
 extension MCP.HTTPResponse {
-    /// Converts an MCP transport response into a Vapor `Response`.
+    /// Convierte una respuesta del transporte MCP en una `Response` de Vapor.
     fileprivate func vaporResponse() -> Vapor.Response {
         let status = Vapor.HTTPResponseStatus(statusCode: statusCode)
         var vaporHeaders = Vapor.HTTPHeaders()

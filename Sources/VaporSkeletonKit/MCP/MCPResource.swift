@@ -1,32 +1,34 @@
 import MCP
 
-/// A single MCP resource: a static or computed piece of context a client can read via
-/// `resources/read`, identified by a URI.
+/// Un único recurso MCP: un contenido estático o calculado que un cliente puede leer
+/// mediante `resources/read`, identificado por una URI.
 ///
-/// Kept separate from ``MCPTool`` because resources and tools serve different purposes
-/// in MCP (context vs. action). Nothing here knows about any particular business model.
+/// Se mantiene separado de ``MCPTool`` porque los recursos y las herramientas cumplen
+/// propósitos distintos en MCP (contexto frente a acción). Nada aquí conoce ningún
+/// modelo de negocio concreto.
 public protocol MCPResource: Sendable {
-    /// The resource's URI, e.g. `items://`.
+    /// La URI del recurso, p. ej. `items://`.
     var uri: String { get }
 
-    /// A short, human-readable name for display in MCP clients.
+    /// Un nombre corto y legible para mostrar en clientes MCP.
     var name: String { get }
 
-    /// A description of what the resource contains.
+    /// Una descripción de lo que contiene el recurso.
     var resourceDescription: String? { get }
 
-    /// The MIME type of the resource's contents.
+    /// El tipo MIME del contenido del recurso.
     var mimeType: String? { get }
 
-    /// Reads the current contents of the resource.
+    /// Lee el contenido actual del recurso.
     ///
-    /// Resources have no soft-error channel (unlike ``CallTool/Result``'s `isError`), so
-    /// failures should be thrown as `MCPError` and are reported as JSON-RPC errors.
+    /// Los recursos no tienen un canal de error "suave" (a diferencia del `isError` de
+    /// `CallTool.Result`), así que los fallos deben lanzarse como `MCPError` y se
+    /// reportan como errores JSON-RPC.
     func read() async throws -> [Resource.Content]
 }
 
 extension MCPResource {
-    /// The MCP `Resource` descriptor advertised by `resources/list`.
+    /// El descriptor `Resource` de MCP anunciado por `resources/list`.
     var descriptor: Resource {
         Resource(name: name, uri: uri, description: resourceDescription, mimeType: mimeType)
     }

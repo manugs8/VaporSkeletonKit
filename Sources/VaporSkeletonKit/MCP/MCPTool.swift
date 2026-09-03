@@ -1,37 +1,41 @@
 import MCP
 
-/// A single MCP tool: a name, a strict input/output JSON schema, and a handler.
+/// Una única herramienta MCP: un nombre, un esquema JSON estricto de entrada/salida y
+/// un handler.
 ///
-/// This protocol is the reusable seam between generic MCP plumbing (`MCPServerFactory`,
-/// `MCPHTTPBridge`) and a consuming app's own domain-specific tools. Nothing in this
-/// file knows about any particular business model.
+/// Este protocolo es el punto de conexión reutilizable entre la infraestructura MCP
+/// genérica (`MCPServerFactory`, `MCPHTTPBridge`) y las herramientas propias de un
+/// dominio de negocio en la app consumidora. Nada en este fichero conoce ningún modelo
+/// de negocio concreto.
 public protocol MCPTool: Sendable {
-    /// The tool's unique name, as sent by clients in `tools/call`.
+    /// El nombre único de la herramienta, tal y como lo envían los clientes en
+    /// `tools/call`.
     var name: String { get }
 
-    /// A short, human-readable title for display in MCP clients.
+    /// Un título corto y legible para mostrar en clientes MCP.
     var title: String? { get }
 
-    /// A description of what the tool does, shown to the model.
+    /// Una descripción de lo que hace la herramienta, mostrada al modelo.
     var toolDescription: String { get }
 
-    /// The JSON Schema describing the tool's expected arguments.
+    /// El JSON Schema que describe los argumentos esperados por la herramienta.
     var inputSchema: Value { get }
 
-    /// The JSON Schema describing the tool's structured output, if any.
+    /// El JSON Schema que describe la salida estructurada de la herramienta, si la hay.
     var outputSchema: Value? { get }
 
-    /// Executes the tool with the given arguments.
+    /// Ejecuta la herramienta con los argumentos dados.
     ///
-    /// Throw ``MCPToolError`` for any failure the caller (an LLM agent) can reasonably
-    /// see and react to — invalid arguments, not-found, database, or internal errors.
-    /// These are reported back as a tool result with `isError: true`, not as a
-    /// transport-level JSON-RPC error.
+    /// Lanza ``MCPToolError`` para cualquier fallo que el llamador (un agente LLM)
+    /// pueda razonablemente ver y ante el que pueda reaccionar — argumentos inválidos,
+    /// no encontrado, error de base de datos o error interno. Estos se reportan de
+    /// vuelta como un resultado de herramienta con `isError: true`, no como un error
+    /// JSON-RPC a nivel de transporte.
     func call(arguments: [String: Value]) async throws -> CallTool.Result
 }
 
 extension MCPTool {
-    /// The MCP `Tool` descriptor advertised by `tools/list`.
+    /// El descriptor `Tool` de MCP anunciado por `tools/list`.
     var descriptor: Tool {
         Tool(
             name: name,

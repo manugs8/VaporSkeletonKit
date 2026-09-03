@@ -1,0 +1,63 @@
+name: CI
+
+# A diferencia de los workflows reusable-*.yml de este mismo directorio (solo
+# workflow_call — invocados por consumidores como BackendSkeleton, nunca ejecutados
+# aquí), este se dispara con el propio push/PR de este repo: VaporSkeletonKit es en sí
+# mismo un paquete Swift real con su propia suite de tests (Tests/), y nada más la
+# valida.
+#
+# No hay ningún Dockerfile del que resolver una imagen de Swift aquí (a diferencia del
+# job resolve-swift-image de reusable-ci.yml) — este repo distribuye una librería, no
+# una app desplegable, así que la imagen se fija directamente. Se mantiene sincronizada
+# a mano con el build stage swift:6.3.2-jammy que usa el propio Dockerfile de
+# BackendSkeleton, ya que ese es el toolchain contra el que de verdad compila y
+# despliega cada consumidor.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container: swift:6.3.2-jammy
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    # Mismos nombres DATABASE_* que usa por defecto el propio configureTestDatabase()
+    # de HealthRouteTests.swift — ver el comentario allí — y los mismos nombres que fija
+    # el job integration-tests de reusable-ci.yml para el servicio Postgres de CI de
+    # cada consumidor.
+    env:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
+      DATABASE_NAME: postgres
+      DATABASE_TLS: disable
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build
+        run: swift build
+      - name: Test
+        run: swift test

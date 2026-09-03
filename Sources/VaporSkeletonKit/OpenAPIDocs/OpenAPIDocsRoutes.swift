@@ -1,17 +1,17 @@
 import Foundation
 import Vapor
 
-/// Registers `GET /openapi.yaml` (serves the raw OpenAPI document driving a
-/// `swift-openapi-generator`-based server) and `GET /docs` (a self-contained Swagger UI
-/// page, loaded from a public CDN, pointing at it) — for import into Postman or any
-/// other OpenAPI-aware tool, and for browsing the API from a browser without any extra
-/// tooling.
+/// Registra `GET /openapi.yaml` (sirve el documento OpenAPI en crudo que impulsa un
+/// servidor basado en `swift-openapi-generator`) y `GET /docs` (una página Swagger UI
+/// autocontenida, cargada desde un CDN público, que apunta a él) — para importar en
+/// Postman o cualquier otra herramienta compatible con OpenAPI, y para explorar la API
+/// desde un navegador sin ninguna herramienta adicional.
 ///
 /// - Parameters:
-///   - app: The `Application` to register the routes on.
-///   - specFilePath: Path to the OpenAPI YAML file, relative to the application's
-///     working directory (e.g. `"Sources/App/openapi.yaml"`).
-///   - docsTitle: The `<title>` of the Swagger UI page, e.g. `"<Project> API Docs"`.
+///   - app: La `Application` sobre la que registrar las rutas.
+///   - specFilePath: Ruta al fichero YAML de OpenAPI, relativa al directorio de trabajo
+///     de la aplicación (p. ej. `"Sources/App/openapi.yaml"`).
+///   - docsTitle: El `<title>` de la página Swagger UI, p. ej. `"<Proyecto> API Docs"`.
 public func registerOpenAPIDocs(_ app: Application, specFilePath: String, docsTitle: String) {
     app.get("openapi.yaml") { req in
         try await openAPISpecHandler(req, specFilePath: specFilePath)

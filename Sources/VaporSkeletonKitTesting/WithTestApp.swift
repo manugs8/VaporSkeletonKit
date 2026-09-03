@@ -1,14 +1,16 @@
 import Fluent
 import Vapor
 
-/// Boots a fully configured test `Application` — including running Fluent migrations —
-/// executes `test` against it, then guarantees teardown (reverting migrations and
-/// shutting the app down) even if `test` throws.
+/// Arranca una `Application` de test completamente configurada — incluyendo la
+/// ejecución de las migraciones de Fluent —, ejecuta `test` contra ella y garantiza
+/// después su desmontaje (revirtiendo migraciones y apagando la app) incluso si `test`
+/// lanza un error.
 ///
-/// This is the "real Postgres, full app mounted in-process via `VaporTesting`" tier of
-/// the three-tier testing strategy every project built from this kit follows (pure
-/// logic / real-database integration / real-HTTP E2E). Requires a reachable Postgres
-/// instance — whatever `configure` connects to.
+/// Este es el nivel "Postgres real, app completa montada en proceso vía `VaporTesting`"
+/// de la estrategia de testing en tres niveles que sigue todo proyecto construido a
+/// partir de este kit (lógica pura / integración con base de datos real / E2E con HTTP
+/// real). Requiere una instancia de Postgres alcanzable — la que sea que `configure`
+/// conecte.
 ///
 /// ```swift
 /// func withMigratedApp(_ test: (Application) async throws -> Void) async throws {
@@ -17,14 +19,15 @@ import Vapor
 /// ```
 ///
 /// - Parameters:
-///   - environment: Process environment variables to set (via `setenv`) before
-///     `Application.make(.testing)` runs — e.g. a bearer-auth package's own
-///     "disable auth for tests" flag. Empty by default: this function doesn't assume
-///     any particular auth package or variable name, same as `makePostgresConfiguration`
-///     not reading `Environment` itself.
-///   - configure: Configures the `Application` (database, migrations, routes, etc.),
-///     exactly like a project's own `configure(_:)`.
-///   - test: The test body to execute with the live, migrated application.
+///   - environment: Variables de entorno de proceso a establecer (vía `setenv`) antes
+///     de que se ejecute `Application.make(.testing)` — p. ej. el flag propio de un
+///     paquete de autenticación para "desactivar auth en tests". Vacío por defecto:
+///     esta función no asume ningún paquete de autenticación ni nombre de variable en
+///     concreto, igual que `makePostgresConfiguration` no lee `Environment` por sí
+///     misma.
+///   - configure: Configura la `Application` (base de datos, migraciones, rutas, etc.),
+///     exactamente igual que el propio `configure(_:)` de un proyecto.
+///   - test: El cuerpo del test a ejecutar con la aplicación real y ya migrada.
 public func withTestApp(
     environment: [String: String] = [:],
     configure: (Application) async throws -> Void,

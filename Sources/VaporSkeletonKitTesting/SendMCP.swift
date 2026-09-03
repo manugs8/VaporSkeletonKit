@@ -2,20 +2,20 @@ import MCP
 import Vapor
 import VaporTesting
 
-/// A failure indicating the MCP route never produced a decodable JSON-RPC response.
+/// Un fallo que indica que la ruta MCP nunca produjo una respuesta JSON-RPC decodificable.
 public enum MCPTestError: Error {
     case missingResponse
 }
 
-/// Sends a single JSON-RPC request to the route mounted by `mountMCPServer(_:...)` and
-/// decodes the typed response — for use in `VaporTesting`-based integration tests
-/// against an in-process `Application`.
+/// Envía una única petición JSON-RPC a la ruta montada por `mountMCPServer(_:...)` y
+/// decodifica la respuesta tipada — para usar en tests de integración basados en
+/// `VaporTesting` contra una `Application` en proceso.
 ///
 /// - Parameters:
-///   - app: The test `Application` the MCP server is mounted on.
-///   - request: The typed MCP request to send.
-///   - path: The route path the server is mounted on. Defaults to `"mcp"`, matching
-///     `mountMCPServer(_:...)`'s own default.
+///   - app: La `Application` de test sobre la que está montado el servidor MCP.
+///   - request: La petición MCP tipada a enviar.
+///   - path: La ruta sobre la que está montado el servidor. Por defecto, `"mcp"`,
+///     igual que el valor por defecto de `mountMCPServer(_:...)`.
 public func sendMCP<M: MCP.Method>(
     _ app: Application,
     _ request: MCP.Request<M>,
