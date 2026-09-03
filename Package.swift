@@ -10,7 +10,12 @@ let package = Package(
         .macOS(.v13)
     ],
     products: [
-        .library(name: "VaporSkeletonKit", targets: ["VaporSkeletonKit"])
+        .library(name: "VaporSkeletonKit", targets: ["VaporSkeletonKit"]),
+        // Separate from `VaporSkeletonKit` itself, same split WorkOSBearerAuth uses for
+        // its own `WorkOSBearerAuthTesting`: a consuming project's own test target links
+        // this to get the same `withTestApp`/`sendMCP` helpers this repo's tests use,
+        // instead of copy-pasting them.
+        .library(name: "VaporSkeletonKitTesting", targets: ["VaporSkeletonKitTesting"]),
     ],
     dependencies: [
         .package(url: "https://github.com/vapor/vapor.git", from: "4.115.0"),
@@ -34,6 +39,24 @@ let package = Package(
             dependencies: [
                 .target(name: "VaporSkeletonKit"),
                 .product(name: "VaporTesting", package: "vapor"),
+            ],
+            swiftSettings: swiftSettings
+        ),
+        .target(
+            name: "VaporSkeletonKitTesting",
+            dependencies: [
+                .product(name: "Vapor", package: "vapor"),
+                .product(name: "Fluent", package: "fluent"),
+                .product(name: "VaporTesting", package: "vapor"),
+                .product(name: "MCP", package: "swift-sdk"),
+            ],
+            swiftSettings: swiftSettings
+        ),
+        .testTarget(
+            name: "VaporSkeletonKitTestingTests",
+            dependencies: [
+                .target(name: "VaporSkeletonKitTesting"),
+                .target(name: "VaporSkeletonKit"),
             ],
             swiftSettings: swiftSettings
         ),

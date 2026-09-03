@@ -18,7 +18,8 @@ isn't business logic.
 - [Postgres configuration](#postgres-configuration)
 - [OpenAPI / Swagger UI serving](#openapi--swagger-ui-serving)
 - [MCP server mounting](#mcp-server-mounting)
-- [Testing](#testing)
+- [Testing helpers](#testing-helpers)
+- [Running this repo's tests](#running-this-repos-tests)
 
 ## Requirements
 
@@ -133,7 +134,47 @@ can reasonably see and react to (`invalidArgument`, `notFound`, `database`,
 `internalError`) — these are reported as a tool result with `isError: true`, not a
 transport-level failure.
 
-## Testing
+## Testing helpers
+
+A separate product, `VaporSkeletonKitTesting`, holds test-only helpers for a consuming
+project's own test target — not linked into `VaporSkeletonKit` itself, same split
+`WorkOSBearerAuth` uses for `WorkOSBearerAuthTesting`:
+
+```swift
+.package(url: "https://github.com/manugs8/VaporSkeletonKit.git", from: "0.3.0")
+
+// In your test target's dependencies:
+.product(name: "VaporSkeletonKitTesting", package: "VaporSkeletonKit")
+```
+
+`withTestApp(environment:configure:test:)` boots a test `Application`, runs your
+`configure(_:)`, migrates, runs your test body, then always reverts migrations and shuts
+down — even if `configure` or the test body throws. `environment` sets process
+environment variables (e.g. an auth package's own "disable auth for tests" flag) before
+`Application.make(.testing)` runs; it's empty by default and doesn't assume any
+particular auth package:
+
+```swift
+import VaporSkeletonKitTesting
+
+func withMigratedApp(_ test: (Application) async throws -> Void) async throws {
+    try await withTestApp(environment: ["AUTH_DISABLED": "true"], configure: configure, test: test)
+}
+```
+
+`sendMCP(_:_:path:)` sends a single typed JSON-RPC request to the route mounted by
+`mountMCPServer(_:...)` and decodes the typed response, for use in
+`VaporTesting`-based integration tests:
+
+```swift
+import MCP
+import VaporSkeletonKitTesting
+
+let response = try await sendMCP(app, ListTools.request(id: 1, ListTools.Parameters()))
+let tools = try response.result.get().tools
+```
+
+## Running this repo's tests
 
 ```bash
 swift test
