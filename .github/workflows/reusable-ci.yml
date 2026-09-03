@@ -1,0 +1,146 @@
+name: Reusable CI
+
+# The actual CI pipeline (build/test/lint), as a called workflow rather than a
+# directly-triggered one (`on: workflow_call` only — this file never runs on its own
+# push/PR). VaporSkeletonKit has no app of its own to build, so nothing here ever
+# triggers this workflow directly — it exists purely as the shared, canonical copy.
+# Consumers (BackendSkeleton, FinanceCore, ...) reference it by path —
+# `uses: manugs8/VaporSkeletonKit/.github/workflows/reusable-ci.yml@main` (or a pinned
+# tag) — so a fix landed here reaches every caller without editing each project's own
+# workflow file, the same way bumping a Swift package version does. `actions/checkout`
+# below checks out the *caller's* repository (that's how `workflow_call` works — the
+# run belongs to the caller), so this always builds/tests the calling project, never
+# this repo.
+#
+# Nothing here is project-specific: no hardcoded project name, no secrets. That's what
+# keeps it safe to reference across repos.
+
+on:
+  workflow_call:
+
+jobs:
+  # Single source of truth for "unit-tests/integration-tests run on the same Swift/OS
+  # image as the production Dockerfile" (§2.2): reads the *build stage's* base image
+  # directly out of the Dockerfile, so the two jobs below use it via `needs:` instead
+  # of a second, hand-maintained copy of the tag that could silently drift from the
+  # real Dockerfile (a claim a code comment alone can't enforce).
+  #
+  # Explicitly requires a stage named `build` (`FROM <image> AS build`, see the
+  # Dockerfile) rather than assuming "the build stage is whichever FROM comes first" —
+  # a plausible but silent assumption that a reordered or added stage would break
+  # without any error. Matching by name turns this into an explicit, checked contract
+  # between the Dockerfile and CI: this job fails loudly if the stage isn't found,
+  # instead of resolving to the wrong image (or an empty one) and failing confusingly
+  # somewhere else.
+  resolve-swift-image:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.parse.outputs.image }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: parse
+        run: |
+          set -euo pipefail
+          image=$(awk '$1 == "FROM" && $0 ~ /[[:space:]]AS[[:space:]]+build([[:space:]]|$)/ { print $2; exit }' Dockerfile)
+          if [ -z "$image" ]; then
+            echo "::error::Dockerfile has no 'FROM <image> AS build' stage. unit-tests/integration-tests need that exact stage name to know which image to run on — see the comment above it in the Dockerfile." >&2
+            exit 1
+          fi
+          echo "Resolved build-stage image: $image"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+
+  # §5.1 — pure logic, no HTTP, no real database.
+  unit-tests:
+    needs: resolve-swift-image
+    runs-on: ubuntu-latest
+    container: ${{ needs.resolve-swift-image.outputs.image }}
+    steps:
+      - uses: actions/checkout@v7
+      # No separate `swift build` step: `swift test` builds everything it needs itself
+      # (SwiftPM always builds the whole test product, not just the filtered target —
+      # `--filter` only selects which tests *run*), so a standalone build step here
+      # would only duplicate compilation, not add a distinct diagnostic signal.
+      - name: Test
+        run: swift test --filter AppUnitTests
+
+  # §5.2 — real Postgres, full app mounted in-process via VaporTesting. Kept as a
+  # separate Build step (unlike unit-tests above): this job also depends on the
+  # Postgres service container, so splitting build from test tells you which of the
+  # two actually failed — a distinction worth the duplicate compilation here, since a
+  # red integration-tests run is otherwise ambiguous between "doesn't compile" and
+  # "compiles but the DB/app interaction is broken".
+  integration-tests:
+    needs: resolve-swift-image
+    runs-on: ubuntu-latest
+    container: ${{ needs.resolve-swift-image.outputs.image }}
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
+      DATABASE_NAME: postgres
+      DATABASE_TLS: disable
+      # Integration tests exercise domain/persistence behavior, not the WorkOS auth
+      # boundary itself — that boundary is covered by the WorkOSBearerAuth package's own
+      # test suite (BearerAuthMiddlewareTests), which opts back into real validation
+      # explicitly — §4.2 requires this bypass to be explicit, which it is here.
+      AUTH_DISABLED: "true"
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build
+        run: swift build
+      - name: Test
+        run: swift test --filter AppIntegrationTests
+
+  # §2.2 — builds the exact artifact that ships to Render on every push/PR, so a
+  # broken Dockerfile (bad apt command, missing COPY, a dependency that resolves
+  # differently outside the swift:*-jammy container, a packaging mistake) fails CI
+  # instead of only surfacing at deploy time. This doesn't run the image — that's what
+  # `e2e.yml` does, once a project has a real Neon/WorkOS E2E environment to run it
+  # against (see CHECKLIST.md, step 14). Needs no secrets, so unlike e2e.yml it isn't
+  # gated and always runs.
+  docker-build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v3
+      - name: Build production image
+        # GHA-backed layer cache, same default scope as reusable-e2e.yml's own build of
+        # this Dockerfile — unchanged layers (apt packages, resolved SwiftPM
+        # dependencies) are reused across runs and across that workflow instead of
+        # rebuilt from scratch on every push. Tag is a fixed, project-agnostic string:
+        # nothing downstream reads it and it's never pushed anywhere, so (unlike the
+        # plain `docker build` this replaces) there's no need to derive it from the repo
+        # name just to satisfy Docker's lowercase-tag rule.
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          tags: ci-build:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  lint-openapi:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+      - name: Lint OpenAPI spec
+        run: npx --yes @redocly/cli lint Sources/App/openapi.yaml

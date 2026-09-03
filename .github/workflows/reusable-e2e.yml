@@ -1,0 +1,333 @@
+name: Reusable E2E
+
+# §2.2/§2.3/§9: runs the real E2E suite against the exact production Docker image, over
+# an ephemeral Neon branch created from `e2e-base` and destroyed afterward — never
+# against an in-process Application (that's AppIntegrationTests' job).
+#
+# `on: workflow_call` only — never runs on its own push/PR. VaporSkeletonKit has no app
+# of its own to run E2E against, so nothing here ever triggers this workflow directly —
+# it exists purely as the shared, canonical copy. A caller's `e2e.yml` references it as
+# `manugs8/VaporSkeletonKit/.github/workflows/reusable-e2e.yml@main` so fixes here reach
+# every caller without hand-editing each project's own workflow.
+#
+# Deliberately gate-free and project-agnostic: whether to run at all (`E2E_ENABLED`)
+# and where the Neon project/secrets live are the caller's concern, passed in below —
+# repo *variables* (`vars`) are never implicitly available inside a called workflow,
+# unlike `secrets: inherit`, so they must be explicit inputs.
+
+on:
+  workflow_call:
+    inputs:
+      neon-project-id:
+        description: Neon project id to branch off of (a repo variable, not a secret).
+        type: string
+        required: true
+      resource-indicator:
+        description: >
+          RFC 8707 resource indicator the fake Authorization Server issues tokens for.
+          Must be a syntactically valid https URL, but is never dereferenced — only
+          compared as a string — so a fixed, deliberately unreachable one is fine.
+          `.invalid` is the RFC 2606 TLD reserved for exactly this.
+        type: string
+        required: false
+        default: https://e2e.invalid/mcp
+      seed-command:
+        description: >
+          Optional command run once the app container reports healthy, before the test
+          step — for a project that seeds a golden dataset up front (e.g.
+          `swift run E2ESeed`) rather than having each suite seed itself the way this
+          template's own `ItemsE2ETests` does. Runs inside the same resolved Swift
+          image as the test step, with the same E2E_* env available. Skipped entirely
+          when left empty (this template's own caller doesn't set it).
+        type: string
+        required: false
+        default: ''
+      db-failure-container:
+        description: >
+          When true, also starts a second copy of the app image pointed at a
+          deliberately unreachable database (no RUN_MIGRATIONS, a nonexistent
+          DATABASE_HOST/PORT) — for a project whose E2E suite asserts real 5xx
+          behavior under a DB outage. Its URL is exposed to the test step as
+          E2E_DB_FAILURE_BASE_URL (http://127.0.0.1:8081). Off by default: this
+          template's own suite doesn't exercise this scenario.
+        type: boolean
+        required: false
+        default: false
+    secrets:
+      neon-api-key:
+        required: true
+      e2e-auth-test-private-key:
+        description: >
+          Private half of the test signing key; its public half ships checked-in at
+          Sources/E2ESupport/Fixtures/test-jwks.json.
+        required: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    env:
+      NEON_API_KEY: ${{ secrets.neon-api-key }}
+      NEON_PROJECT_ID: ${{ inputs.neon-project-id }}
+      RESOURCE_INDICATOR: ${{ inputs.resource-indicator }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # This job loads the full built app image (`load: true`, below) *and* separately
+      # pulls the full (non-slim) `swift:*-jammy` image to run the seed/test step inside
+      # — two multi-GB images alive on the runner's disk at once, on top of whatever
+      # `cache-from`/`cache-to: type=gha,mode=max` materializes locally. `ubuntu-latest`
+      # ships with tens of GB already consumed by preinstalled toolchains this workflow
+      # never touches (.NET, Android SDK, GHC, CodeQL bundles...), which was enough to
+      # tip a real run into "no space left on device" mid-pull. Reclaiming that upfront
+      # is the standard fix for this class of failure, not something specific to this
+      # Dockerfile — `docker-build` in reusable-ci.yml doesn't need it because it never
+      # passes `load: true` (validates the build without materializing the image).
+      - name: Free disk space on the runner
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
+          sudo docker image prune -af || true
+          df -h /
+
+      # No toolchain-installer action for the runner (tried swift-actions/setup-swift:
+      # v3 is a beta that installs via Swiftly and fails GPG verification, "Can't check
+      # signature: No public key"; v2 is the real latest stable but its version
+      # allowlist doesn't include 6.3.2 yet, "Version is not available" — both found
+      # running this job for the first time). "Run E2E tests" below runs directly
+      # inside the same `swift:*-jammy` image as the app under test instead — mirrors
+      # `resolve-swift-image` in reusable-ci.yml, reading it from the Dockerfile's
+      # build stage so there's still a single source of truth for the Swift version,
+      # not a second hardcoded copy of it here.
+      - name: Resolve the Swift image from the Dockerfile's build stage
+        id: resolve_swift_image
+        run: |
+          set -euo pipefail
+          image=$(awk '$1 == "FROM" && $0 ~ /[[:space:]]AS[[:space:]]+build([[:space:]]|$)/ { print $2; exit }' Dockerfile)
+          if [ -z "$image" ]; then
+            echo "::error::Dockerfile has no 'FROM <image> AS build' stage." >&2
+            exit 1
+          fi
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build production Docker image
+        # Same GHA-backed layer cache as reusable-ci.yml's docker-build, same default
+        # scope so both jobs share cache entries for this Dockerfile. `load: true`
+        # because, unlike that job, this image is actually run below.
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          tags: e2e-app:${{ github.sha }}
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Create a Docker network for this run
+        run: docker network create e2e-net
+
+      # Static file, zero computation — served at the exact path `configureBearerAuth`
+      # requests: `{issuer}/oauth2/jwks`. The private half of this keypair never touches
+      # this runner as a file; it's injected straight into the app container's env
+      # further down, and into `swift test`'s env for signing (`E2E_AUTH_TEST_PRIVATE_KEY`).
+      # Published to the host (`-p 9099:9099`, not just the `e2e-net` bridge) so the
+      # Cloudflare tunnel below — which runs on the runner itself, not inside a
+      # container — can reach it.
+      - name: Serve the fake Authorization Server's JWKS
+        run: |
+          mkdir -p fake-authkit/oauth2
+          cp Sources/E2ESupport/Fixtures/test-jwks.json fake-authkit/oauth2/jwks
+          docker run -d --name fake-authkit --network e2e-net -p 9099:9099 \
+            -v "${{ github.workspace }}/fake-authkit:/srv:ro" -w /srv \
+            python:3-alpine python3 -m http.server 9099
+
+      # WorkOSBearerAuth's issuer check is https-only with no exception (see the
+      # RESOURCE_INDICATOR comment above) — unlike the resource indicator, the issuer
+      # *is* actually fetched (`RemoteJWKS` does a real `GET {issuer}/oauth2/jwks`), so
+      # it has to be a genuinely reachable https URL, not just a valid-looking string.
+      # A Cloudflare "quick tunnel" gives the fake Authorization Server a real,
+      # publicly-trusted HTTPS endpoint with zero signup and zero secrets — no
+      # certificate to generate or distribute, and nothing for the app container to be
+      # told to trust, unlike a self-signed cert would require.
+      - name: Start a Cloudflare quick tunnel for the fake Authorization Server
+        id: cloudflared
+        run: |
+          set -euo pipefail
+          curl -sL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o cloudflared
+          chmod +x cloudflared
+          ./cloudflared tunnel --url http://127.0.0.1:9099 --no-autoupdate > cloudflared.log 2>&1 &
+          echo $! > cloudflared.pid
+
+          for _ in $(seq 1 30); do
+            issuer=$(grep -oE 'https://[a-zA-Z0-9-]+\.trycloudflare\.com' cloudflared.log | head -1 || true)
+            if [ -n "$issuer" ]; then
+              echo "issuer=$issuer" >> "$GITHUB_OUTPUT"
+              echo "Tunnel ready: $issuer"
+              # cloudflared reporting the tunnel connected (its own pre-checks, all
+              # about the cloudflared<->Cloudflare-edge leg) is not the same as the
+              # freshly-minted *.trycloudflare.com hostname being resolvable/routable
+              # yet from an arbitrary external client — that DNS/edge propagation is a
+              # separate step that measurably lags behind "tunnel ready" (seen directly:
+              # a first attempt at ~40s still failed). Budget for it generously rather
+              # than re-guess a shorter number after the next flaky run.
+              for i in $(seq 1 40); do
+                if curl -sf "$issuer/oauth2/jwks" > /dev/null; then
+                  echo "Reachable after $((i * 3))s"
+                  exit 0
+                fi
+                sleep 3
+              done
+              echo "::error::Tunnel URL reported but /oauth2/jwks never became reachable through it after 120s" >&2
+              echo "--- Verbose curl of the failing request ---"
+              curl -v "$issuer/oauth2/jwks" 2>&1 || true
+              echo "--- cloudflared.log ---"
+              cat cloudflared.log
+              echo "--- Is fake-authkit reachable directly (bypassing the tunnel)? ---"
+              curl -sv http://127.0.0.1:9099/oauth2/jwks 2>&1 || true
+              exit 1
+            fi
+            sleep 1
+          done
+          echo "::error::cloudflared did not report a trycloudflare.com URL in time" >&2
+          cat cloudflared.log
+          exit 1
+
+      # §9.2/§9.3 — create this run's own disposable branch off the stable `e2e-base`.
+      - name: Create ephemeral Neon branch
+        id: neon_branch
+        run: |
+          set -euo pipefail
+          branch_name="e2e-run-${{ github.run_id }}-${{ github.run_attempt }}"
+          echo "branch_name=$branch_name" >> "$GITHUB_OUTPUT"
+
+          npx --yes neonctl branches create \
+            --project-id "$NEON_PROJECT_ID" \
+            --parent e2e-base \
+            --name "$branch_name" \
+            --api-key "$NEON_API_KEY"
+
+          database_url=$(npx --yes neonctl connection-string "$branch_name" \
+            --project-id "$NEON_PROJECT_ID" --api-key "$NEON_API_KEY")
+          echo "::add-mask::$database_url"
+          echo "database_url=$database_url" >> "$GITHUB_OUTPUT"
+
+      # §11 — migrations run as part of the container's normal startup
+      # (RUN_MIGRATIONS=true), the same path production uses, against a clean branch.
+      - name: Start the app container against the ephemeral branch
+        env:
+          DATABASE_URL: ${{ steps.neon_branch.outputs.database_url }}
+          FAKE_AUTHKIT_ISSUER: ${{ steps.cloudflared.outputs.issuer }}
+        run: |
+          set -euo pipefail
+          docker run -d --name e2e-app --network e2e-net -p 8080:8080 \
+            -e DATABASE_URL="$DATABASE_URL" \
+            -e RUN_MIGRATIONS=true \
+            -e MCP_ENABLED=true \
+            -e WORKOS_ISSUER="$FAKE_AUTHKIT_ISSUER" \
+            -e WORKOS_RESOURCE_INDICATORS="$RESOURCE_INDICATOR" \
+            e2e-app:${{ github.sha }}
+
+          for _ in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8080/health > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::App container never became healthy" >&2
+          exit 1
+
+      # Optional: a second instance of the same image, deliberately unable to reach a
+      # database (bad host/port, no RUN_MIGRATIONS) — for a project whose E2E suite
+      # asserts real 5xx behavior under a DB outage. Same auth config as the main
+      # container so a request here still passes BearerAuthMiddleware before failing
+      # inside the handler. Not health-checked: an unreachable database makes /health
+      # itself report unhealthy, so "container accepts connections" is all that's
+      # expected here, not a 200.
+      - name: Start the database-failure container
+        if: ${{ inputs.db-failure-container }}
+        env:
+          FAKE_AUTHKIT_ISSUER: ${{ steps.cloudflared.outputs.issuer }}
+        run: |
+          set -euo pipefail
+          docker run -d --name e2e-app-db-failure --network e2e-net -p 8081:8080 \
+            -e DATABASE_HOST=localhost -e DATABASE_PORT=1 \
+            -e DATABASE_USERNAME=nobody -e DATABASE_PASSWORD=nobody \
+            -e DATABASE_NAME=nobody -e DATABASE_TLS=disable \
+            -e MCP_ENABLED=true \
+            -e WORKOS_ISSUER="$FAKE_AUTHKIT_ISSUER" \
+            -e WORKOS_RESOURCE_INDICATORS="$RESOURCE_INDICATOR" \
+            e2e-app:${{ github.sha }}
+          sleep 3
+
+      # Optional: a project that seeds a golden dataset up front rather than per-suite
+      # (see the `seed-command` input) runs it here, once, before the test step below.
+      - name: Seed fixtures
+        if: ${{ inputs.seed-command != '' }}
+        env:
+          E2E_BASE_URL: http://127.0.0.1:8080
+          E2E_AUTH_TEST_ISSUER: ${{ steps.cloudflared.outputs.issuer }}
+          E2E_AUTH_TEST_RESOURCE: ${{ env.RESOURCE_INDICATOR }}
+          E2E_AUTH_TEST_PRIVATE_KEY: ${{ secrets.e2e-auth-test-private-key }}
+        run: |
+          docker run --rm --network host \
+            -v "${{ github.workspace }}:/workspace" -w /workspace \
+            -e E2E_BASE_URL -e E2E_AUTH_TEST_ISSUER -e E2E_AUTH_TEST_RESOURCE -e E2E_AUTH_TEST_PRIVATE_KEY \
+            "${{ steps.resolve_swift_image.outputs.image }}" \
+            ${{ inputs.seed-command }}
+
+      # §8 — API-based, deterministic seed. `E2ESeed` is a library (Sources/E2ESeed/),
+      # not a standalone step: each E2E suite that needs fixtures calls
+      # `E2ESeeder.seed(...)` itself at the point it needs them (see ItemsE2ETests),
+      # rather than relying on cross-test ordering against a shared seed run.
+      # Runs inside the resolved Swift image (see the step above) rather than on the
+      # bare runner — `--network host` so `127.0.0.1:8080`/the tunnel resolve exactly
+      # as they would for a process running directly on the runner.
+      - name: Run E2E tests
+        env:
+          E2E_BASE_URL: http://127.0.0.1:8080
+          E2E_AUTH_TEST_ISSUER: ${{ steps.cloudflared.outputs.issuer }}
+          # Must match RESOURCE_INDICATOR exactly — it becomes the token's `aud` claim,
+          # checked against WORKOS_RESOURCE_INDICATORS above. Set explicitly rather than
+          # relying on `WorkOSTestTokenSigner`'s fallback to `E2E_BASE_URL`: that's the
+          # real http address the test runner uses to reach the app directly, which is
+          # no longer the same value now that the resource indicator has to be https.
+          E2E_AUTH_TEST_RESOURCE: ${{ env.RESOURCE_INDICATOR }}
+          E2E_AUTH_TEST_PRIVATE_KEY: ${{ secrets.e2e-auth-test-private-key }}
+          # Empty (falsy in the app's own env-var check) unless db-failure-container was
+          # requested above — matches the port that container publishes on.
+          E2E_DB_FAILURE_BASE_URL: ${{ inputs.db-failure-container && 'http://127.0.0.1:8081' || '' }}
+        run: |
+          docker run --rm --network host \
+            -v "${{ github.workspace }}:/workspace" -w /workspace \
+            -e E2E_BASE_URL -e E2E_AUTH_TEST_ISSUER -e E2E_AUTH_TEST_RESOURCE -e E2E_AUTH_TEST_PRIVATE_KEY \
+            -e E2E_DB_FAILURE_BASE_URL \
+            "${{ steps.resolve_swift_image.outputs.image }}" \
+            swift test --filter E2ETests
+
+      # §20 — diagnostics are collected before the branch is destroyed, always (even on
+      # failure), since they won't be retrievable afterward.
+      - name: Collect container logs
+        if: always()
+        run: docker logs e2e-app > e2e-app.log 2>&1 || true
+
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-diagnostics-${{ github.run_id }}
+          path: e2e-app.log
+          retention-days: 7
+
+      - name: Stop containers, the tunnel, and remove the network
+        if: always()
+        run: |
+          [ -f cloudflared.pid ] && kill "$(cat cloudflared.pid)" 2>/dev/null || true
+          docker rm -f e2e-app e2e-app-db-failure fake-authkit 2>/dev/null || true
+          docker network rm e2e-net 2>/dev/null || true
+
+      # §9.3/§9.4 — cleanup runs even after a test failure, so branches never
+      # accumulate against the Neon Free limit.
+      - name: Delete ephemeral Neon branch
+        if: always()
+        run: |
+          npx --yes neonctl branches delete "${{ steps.neon_branch.outputs.branch_name }}" \
+            --project-id "$NEON_PROJECT_ID" --api-key "$NEON_API_KEY" || true

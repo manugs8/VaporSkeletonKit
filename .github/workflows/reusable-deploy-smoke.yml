@@ -1,0 +1,49 @@
+name: Reusable Deploy Smoke Test
+
+# §13: Render deploys natively from GitHub on push to `main` (this workflow does not
+# trigger that deploy — Render's own GitHub integration does). This just polls the
+# deployed `/health` afterward, as the "smoke test" step of the standard's deploy flow.
+#
+# `on: workflow_call` only. VaporSkeletonKit has no app of its own to deploy, so nothing
+# here ever triggers this workflow directly — it exists purely as the shared, canonical
+# copy. A caller's `deploy-smoke.yml` references it as
+# `manugs8/VaporSkeletonKit/.github/workflows/reusable-deploy-smoke.yml@main`.
+#
+# If the smoke test fails, the deploy is not automatically rolled back: use Render's
+# dashboard to redeploy the previous successful build (Render Free has no scriptable
+# rollback API).
+
+on:
+  workflow_call:
+    inputs:
+      render-service-url:
+        description: Public URL of the deployed service (no trailing slash).
+        type: string
+        required: true
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Render's deploy to roll out
+        # Render has no free, simple "deploy finished" webhook to poll here — a fixed
+        # delay before polling is the pragmatic Free-tier choice (§18). Tune this per
+        # project if builds are consistently slower or faster.
+        run: sleep 60
+
+      - name: Poll /health with backoff
+        env:
+          RENDER_SERVICE_URL: ${{ inputs.render-service-url }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 10); do
+            if response=$(curl -sf "$RENDER_SERVICE_URL/health"); then
+              echo "$response"
+              echo "Healthy after $attempt attempt(s)."
+              exit 0
+            fi
+            echo "Attempt $attempt: not healthy yet, retrying..."
+            sleep $((attempt * 5))
+          done
+          echo "::error::$RENDER_SERVICE_URL/health never became healthy — see Render's dashboard to redeploy the previous build."
+          exit 1
