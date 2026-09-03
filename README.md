@@ -19,6 +19,7 @@ isn't business logic.
 - [OpenAPI / Swagger UI serving](#openapi--swagger-ui-serving)
 - [MCP server mounting](#mcp-server-mounting)
 - [Testing helpers](#testing-helpers)
+- [E2E support](#e2e-support)
 - [Running this repo's tests](#running-this-repos-tests)
 
 ## Requirements
@@ -172,6 +173,45 @@ import VaporSkeletonKitTesting
 
 let response = try await sendMCP(app, ListTools.request(id: 1, ListTools.Parameters()))
 let tools = try response.result.get().tools
+```
+
+## E2E support
+
+A third product, `VaporSkeletonKitE2ESupport`, holds test-only helpers for E2E suites
+that talk real HTTP/MCP to an already-running server (often the production Docker image
+in CI) rather than an in-process `Application` — deliberately dependency-light (no
+Vapor/Fluent), so it's also safe to link from a deterministic seed target:
+
+```swift
+.package(url: "https://github.com/manugs8/VaporSkeletonKit.git", from: "0.5.0")
+
+// In your E2E support/test targets' dependencies:
+.product(name: "VaporSkeletonKitE2ESupport", package: "VaporSkeletonKit")
+```
+
+`E2EEnvironment.baseURL` reads `E2E_BASE_URL`, defaulting to `swift run`'s local address
+(`http://127.0.0.1:8080`).
+
+`E2EHTTPClient` is a minimal REST client. Like `makePostgresConfiguration`, it never
+assumes a particular auth package: `authToken` is a closure producing the bearer token
+for authenticated requests (or `nil` to send none), called fresh on every request:
+
+```swift
+import VaporSkeletonKitE2ESupport
+
+let client = E2EHTTPClient(authToken: { try await myTokenSigner.validToken() })
+let response = try await client.get("items", authenticated: false) // no Authorization header
+let item = try await client.post("items", json: NewItem(name: "Widget"), as: Item.self)
+```
+
+`E2EMCPClient.connect(...)` builds a real `MCP.Client` over `HTTPClientTransport`, the
+same way an external agent would, attaching a bearer token the same way:
+
+```swift
+import VaporSkeletonKitE2ESupport
+
+let client = try await E2EMCPClient.connect(authToken: { try await myTokenSigner.validToken() })
+let (content, isError) = try await client.callTool(name: "list_items")
 ```
 
 ## Running this repo's tests
