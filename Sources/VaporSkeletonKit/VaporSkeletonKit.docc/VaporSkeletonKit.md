@@ -30,6 +30,13 @@ que montan un backend desde `Package.swift` en blanco hasta un servidor con Post
 Si ya conoces el kit y buscas el porqué de una pieza concreta, ve directo al artículo
 correspondiente.
 
+Este catálogo documenta el **cómo**: lo que este paquete concreto implementa. La norma
+más amplia que ese cómo satisface — arquitectura, niveles de test, estrategia de Neon,
+zonas protegidas para desarrollo asistido por IA, checklist de adopción — vive por
+separado en
+[`docs/EstandarDeIngenieria.md`](https://github.com/manugs8/VaporSkeletonKit/blob/main/docs/EstandarDeIngenieria.md),
+que enlaza aquí en cada punto donde ambos solapan.
+
 ## Topics
 
 ### Arquitectura y diseño
