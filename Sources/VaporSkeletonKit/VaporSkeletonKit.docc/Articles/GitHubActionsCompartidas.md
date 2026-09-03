@@ -5,8 +5,8 @@ paquete Swift, y cómo un proyecto consumidor los conecta.
 
 ## Por qué viven aquí, y no en cada proyecto
 
-Igual que el código Swift de este kit, el pipeline de CI/CD de un proyecto derivado de
-`BackendSkeleton` es en gran parte idéntico de un proyecto a otro: build/test contra
+Igual que el código Swift de este kit, el pipeline de CI/CD de un backend Vapor que use
+este kit es en gran parte idéntico de un proyecto a otro: build/test contra
 Postgres, construir la imagen Docker de producción, un smoke test tras el despliegue, un
 E2E completo contra esa imagen sobre una rama Neon efímera. Copiar esos ficheros
 `.yml` a cada repo tiene el mismo problema que copiar `.swift`: una corrección hecha en
@@ -77,8 +77,8 @@ combinándola con branch protection que exija revisión de CODEOWNERS.
 
 ## Cómo lo conecta un proyecto consumidor
 
-El propio `ci.yml` de `BackendSkeleton`, del que salen estos ficheros, es intencionadamente
-delgado: solo conecta triggers, permisos y las dos llamadas.
+El propio `ci.yml` de un proyecto consumidor es intencionadamente delgado: solo conecta
+triggers, permisos y las dos llamadas.
 
 ```yaml
 on:

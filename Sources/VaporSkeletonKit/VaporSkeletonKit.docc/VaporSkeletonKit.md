@@ -1,8 +1,7 @@
 # ``VaporSkeletonKit``
 
 Infraestructura genérica y libre de lógica de negocio para backends Vapor 4 + Fluent +
-PostgreSQL, para que un proyecto derivado de `BackendSkeleton` solo tenga que escribir
-su propio dominio.
+PostgreSQL, para que un proyecto solo tenga que escribir su propio dominio.
 
 ## Descripción general
 

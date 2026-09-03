@@ -9,8 +9,8 @@ Todo `@main` de un backend Vapor necesita, en este orden: detectar el entorno
 (`Environment.detect()`), arrancar el sistema de logging a partir de ese entorno,
 construir la `Application`, ejecutar el `configure(_:)` propio del proyecto, servir
 peticiones hasta recibir la señal de apagado, y desmontar limpiamente la `Application`.
-Ese código es idéntico en cualquier proyecto derivado de `BackendSkeleton` — la única
-pieza que varía de un proyecto a otro es qué hace `configure(_:)`.
+Ese código es idéntico en cualquier backend Vapor que use este kit — la única pieza que
+varía de un proyecto a otro es qué hace `configure(_:)`.
 
 ## La solución: un entrypoint de una línea
 

@@ -6,8 +6,8 @@ Actions compartidas.
 ## Descripción general
 
 `VaporSkeletonKit` parte de una premisa simple: todo lo que **no** es lógica de negocio
-en un backend Vapor derivado de `BackendSkeleton` debería vivir en un único sitio,
-versionado, con sus propios tests, en lugar de copiado y pegado en cada proyecto nuevo.
+en un backend Vapor debería vivir en un único sitio, versionado, con sus propios tests,
+en lugar de copiado y pegado en cada proyecto nuevo.
 
 ![Arquitectura general: el proyecto consumidor en la parte superior, con WorkOSBearerAuth, VaporSkeletonKit y las GitHub Actions compartidas debajo, y los tres productos SPM de VaporSkeletonKit en la base.](arquitectura-general)
 

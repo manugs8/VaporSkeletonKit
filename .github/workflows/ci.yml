@@ -1,17 +1,15 @@
 name: CI
 
 # A diferencia de los workflows reusable-*.yml de este mismo directorio (solo
-# workflow_call — invocados por consumidores como BackendSkeleton, nunca ejecutados
-# aquí), este se dispara con el propio push/PR de este repo: VaporSkeletonKit es en sí
-# mismo un paquete Swift real con su propia suite de tests (Tests/), y nada más la
-# valida.
+# workflow_call — invocados por proyectos consumidores, nunca ejecutados aquí), este se
+# dispara con el propio push/PR de este repo: VaporSkeletonKit es en sí mismo un paquete
+# Swift real con su propia suite de tests (Tests/), y nada más la valida.
 #
 # No hay ningún Dockerfile del que resolver una imagen de Swift aquí (a diferencia del
 # job resolve-swift-image de reusable-ci.yml) — este repo distribuye una librería, no
 # una app desplegable, así que la imagen se fija directamente. Se mantiene sincronizada
-# a mano con el build stage swift:6.3.2-jammy que usa el propio Dockerfile de
-# BackendSkeleton, ya que ese es el toolchain contra el que de verdad compila y
-# despliega cada consumidor.
+# a mano con la versión de Swift que use el `Dockerfile` de un proyecto consumidor
+# típico, ya que ese es el toolchain contra el que de verdad se compila y despliega.
 
 on:
   push:

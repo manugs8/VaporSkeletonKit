@@ -1,14 +1,12 @@
 # VaporSkeletonKit
 
-Infraestructura genérica y libre de lógica de negocio, compartida por los backends
-construidos a partir de [`BackendSkeleton`](https://github.com/manugs8/BackendSkeleton)
-— una plantilla Vapor 4 + Fluent + PostgreSQL desplegada en Render contra Neon. Se
-extrajo para que un proyecto derivado de esa plantilla dependa de este paquete vía SPM,
-y referencie los workflows de CI/CD de este repo por path, en lugar de copiar ficheros
-`.swift`/`.yml` que después irían divergiendo de las correcciones hechas aquí. Un
-proyecto consumidor enlaza los targets Swift de abajo y monta su propio wrapper delgado
-para las [GitHub Actions compartidas](#github-actions-compartidas) — todo lo demás queda
-libre para que se centre en su propia lógica de negocio.
+Infraestructura genérica y libre de lógica de negocio para backends Vapor 4 + Fluent +
+PostgreSQL desplegados en Render contra Neon. Un proyecto depende de este paquete vía
+SPM, y referencia los workflows de CI/CD de este repo por path, en lugar de mantener
+copias propias de ficheros `.swift`/`.yml` que acaban divergiendo de las correcciones
+hechas aquí. Un proyecto consumidor enlaza los targets Swift de abajo y monta su propio
+wrapper delgado para las [GitHub Actions compartidas](#github-actions-compartidas) —
+todo lo demás queda libre para que se centre en su propia lógica de negocio.
 
 Paquete complementario: [`WorkOSBearerAuth`](https://github.com/manugs8/WorkOSBearerAuth)
 cubre la autenticación; este paquete cubre todo lo demás que no es ni autenticación ni
@@ -113,8 +111,7 @@ registerOpenAPIDocs(app, specFilePath: "Sources/App/openapi.yaml", docsTitle: "M
 
 `specFilePath` se resuelve relativo a `app.directory.workingDirectory`, así que la misma
 llamada funciona tanto en desarrollo local como dentro de la imagen Docker de producción,
-siempre que el fichero YAML se copie a esa misma ruta relativa (ver el `Dockerfile` de
-`BackendSkeleton`).
+siempre que el fichero YAML se copie a esa misma ruta relativa dentro de la imagen.
 
 ## Montaje del servidor MCP
 
@@ -235,8 +232,8 @@ let (content, isError) = try await client.callTool(name: "list_items")
 
 ## GitHub Actions compartidas
 
-Además del paquete Swift, este repo aloja las copias canónicas del pipeline de CI/CD de
-BackendSkeleton: tres workflows reutilizables y una composite action, referenciados por
+Además del paquete Swift, este repo aloja las copias canónicas de un pipeline de CI/CD
+completo: tres workflows reutilizables y una composite action, referenciados por
 path desde el propio `.github/workflows/` de un proyecto consumidor en lugar de
 copiados dentro de él — una corrección hecha aquí llega a cada consumidor sin tener que
 editar a mano el fichero de workflow de cada proyecto, de la misma forma en que subir de
