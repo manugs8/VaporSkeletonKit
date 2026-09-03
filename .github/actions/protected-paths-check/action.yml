@@ -1,0 +1,81 @@
+name: Protected paths check
+description: >
+  Flags a PR that touches a path listed in the given protected-paths file (Layer 2 of
+  the protected-zones scheme, §16) — job summary + PR label, doesn't block merging on
+  its own. A concrete project gives it real teeth with branch protection requiring
+  review from CODEOWNERS (see CHECKLIST.md) — Layer 3. Composite action rather than a
+  reusable workflow because it's a single reusable step, not a job pipeline — it can be
+  dropped into any job, including one that already does other things. Runs in the
+  caller's own job context, so it needs no permissions/secrets wiring of its own beyond
+  what that job already grants (contents: read, pull-requests: write) and what GitHub
+  always exposes (github.token, github.event.pull_request.*).
+
+inputs:
+  paths-file:
+    description: Path to the protected-paths list (git `:(glob)` pathspec per line).
+    required: false
+    default: .github/protected-paths.txt
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+
+    - name: Check for protected path changes
+      # Matching is delegated entirely to git's own `:(glob)` pathspec magic (see the
+      # header of the paths file for the exact semantics) rather than a hand-rolled
+      # bash `case`/glob — that gave `*` and `**` identical (and unspecified) behavior,
+      # since bash's plain `case` glob never treats `/` specially in the first place.
+      # `git diff -- ':(glob)<pattern>'` filters the diff by pattern directly, so
+      # there's no separate matching loop to get wrong.
+      #
+      # Diffs the exact base/head SHAs GitHub reports for this PR (not branch names,
+      # which can move or, for a deleted source branch, stop resolving at all) with
+      # triple-dot range syntax — `base...head` diffs against their merge-base, so a
+      # PR opened before some unrelated change landed on the base branch doesn't get
+      # flagged for a protected-path change it never made.
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        PATHS_FILE: ${{ inputs.paths-file }}
+      run: |
+        set -euo pipefail
+
+        matched=()
+        while IFS= read -r pattern; do
+          [[ -z "$pattern" || "$pattern" == \#* ]] && continue
+          while IFS= read -r file; do
+            [[ -z "$file" ]] && continue
+            matched+=("$file (matches \`$pattern\`)")
+          done < <(git diff --name-only "$BASE_SHA...$HEAD_SHA" -- ":(glob)$pattern")
+        done < "$PATHS_FILE"
+
+        if [ ${#matched[@]} -eq 0 ]; then
+          echo "No protected paths changed." >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+        fi
+
+        {
+          echo "## Protected paths changed"
+          echo
+          echo "This PR touches paths listed in \`$PATHS_FILE\`."
+          echo "See \`.github/AGENTS.md\` — these represent the E2E contract, the"
+          echo "CI/deploy pipeline, or the WorkOS auth boundary, and should get"
+          echo "deliberate human review rather than a rubber stamp."
+          echo
+          for m in "${matched[@]}"; do
+            echo "- $m"
+          done
+        } >> "$GITHUB_STEP_SUMMARY"
+
+        for m in "${matched[@]}"; do
+          echo "::warning::Protected path changed: $m"
+        done
+
+        gh pr edit "$PR_NUMBER" --add-label protected-change 2>/dev/null \
+          || echo "::notice::Could not add the 'protected-change' label (create it in repo Labels settings to enable this) — the warnings above still stand."
