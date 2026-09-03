@@ -64,9 +64,28 @@ CI.
 
 ```swift
 let client = E2EHTTPClient(authToken: { try await myTokenSigner.validToken() })
-let response = try await client.get("items", authenticated: false) // sin cabecera Authorization
+let response = try await client.get("items", authorization: .none) // sin cabecera Authorization
 let item = try await client.post("items", json: NewItem(name: "Widget"), as: Item.self)
 ```
+
+`authorization` acepta tres valores (`E2EHTTPClient.Authorization`):
+
+- `.default` (el implícito en todos los métodos) — llama a `authToken` en cada
+  petición.
+- `.none` — omite la cabecera `Authorization` por completo, sin llamar a `authToken`
+  — para los escenarios que verifican el rechazo de una petición no autenticada.
+- `.bearer(String)` — adjunta un token concreto en vez del que produciría `authToken`
+  — para los escenarios que prueban el rechazo de un token inválido o caducado, sin
+  necesidad de que el proyecto consumidor sepa firmar uno "malo" con su propio paquete
+  de autenticación.
+
+`send`/`get`/`post`/`put` devuelven una `Response` con `status`, `body`, y también
+`headers` (nombres en minúsculas) — para afirmar sobre `WWW-Authenticate` en un `401`,
+o `Content-Type` en un `200`. `send(_:_:body:contentType:authorization:)` acepta un
+`contentType` explícito (`application/json` por defecto) — la única vía para probar que
+el servidor rechaza correctamente un `Content-Type` incompatible en vez de intentar
+decodificarlo. `put`/`put(encoding:)` existen junto a los `post` ya vistos, para
+ejercitar endpoints `PUT`.
 
 `E2EMCPClient` construye un `MCP.Client` real sobre `HTTPClientTransport` — un cliente
 MCP genuino, hablando HTTP/JSON-RPC real, exactamente como lo haría un agente externo:
