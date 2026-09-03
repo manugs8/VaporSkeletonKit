@@ -16,6 +16,12 @@ let package = Package(
         // this to get the same `withTestApp`/`sendMCP` helpers this repo's tests use,
         // instead of copy-pasting them.
         .library(name: "VaporSkeletonKitTesting", targets: ["VaporSkeletonKitTesting"]),
+        // Deliberately dependency-light (no Vapor/Fluent), same reasoning as
+        // `VaporSkeletonKitTesting`/`WorkOSBearerAuthTesting`: E2E suites talk real
+        // HTTP/MCP to an already-running server (often the production Docker image),
+        // never an in-process `Application`, so they have no reason to link the
+        // server-side stack. Safe to share with a deterministic seed target too.
+        .library(name: "VaporSkeletonKitE2ESupport", targets: ["VaporSkeletonKitE2ESupport"]),
     ],
     dependencies: [
         .package(url: "https://github.com/vapor/vapor.git", from: "4.115.0"),
@@ -57,6 +63,22 @@ let package = Package(
             dependencies: [
                 .target(name: "VaporSkeletonKitTesting"),
                 .target(name: "VaporSkeletonKit"),
+            ],
+            swiftSettings: swiftSettings
+        ),
+        .target(
+            name: "VaporSkeletonKitE2ESupport",
+            dependencies: [
+                .product(name: "MCP", package: "swift-sdk")
+            ],
+            swiftSettings: swiftSettings
+        ),
+        .testTarget(
+            name: "VaporSkeletonKitE2ESupportTests",
+            dependencies: [
+                .target(name: "VaporSkeletonKitE2ESupport"),
+                .target(name: "VaporSkeletonKit"),
+                .product(name: "Vapor", package: "vapor"),
             ],
             swiftSettings: swiftSettings
         ),
