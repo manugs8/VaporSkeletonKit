@@ -1,0 +1,108 @@
+@Tutorial(time: 15) {
+    @Intro(title: "Monta tu primer servidor") {
+        Vas a crear un proyecto Vapor nuevo que depende de `VaporSkeletonKit`, arrancarlo
+        con ``runApp(configure:)``, conectarlo a Postgres con
+        ``makePostgresConfiguration(from:)``, y exponer `GET /health` con
+        ``registerHealthRoute(_:)`` — sin escribir tú mismo ninguna de esas tres piezas.
+
+        @Image(source: "flujo-arranque", alt: "Diagrama del arranque de la app, desde Package.swift hasta GET /health respondiendo 200 OK.")
+    }
+
+    @Section(title: "Declara la dependencia") {
+        @ContentAndMedia {
+            Todo empieza en `Package.swift`: un target ejecutable que depende de Vapor y
+            de `VaporSkeletonKit`.
+
+            @Image(source: "flujo-arranque", alt: "Diagrama del arranque de la app, desde Package.swift hasta GET /health respondiendo 200 OK.")
+        }
+
+        @Steps {
+            @Step {
+                Crea un `Package.swift` con un target ejecutable llamado `App`, que
+                dependa tanto de Vapor como de `VaporSkeletonKit`.
+
+                @Code(name: "Package.swift", file: "t1-01-package.swift")
+            }
+        }
+    }
+
+    @Section(title: "Escribe el entrypoint") {
+        @ContentAndMedia {
+            `runApp(configure:)` sustituye todo el código repetitivo de arranque y
+            apagado — tu `@main` solo tiene que decir qué `configure(_:)` ejecutar.
+
+            @Image(source: "flujo-arranque", alt: "Diagrama del arranque de la app, desde Package.swift hasta GET /health respondiendo 200 OK.")
+        }
+
+        @Steps {
+            @Step {
+                Crea `Sources/App/Entrypoint.swift`. `runApp(configure:)` detecta el
+                entorno, arranca el logging, construye la `Application`, ejecuta
+                `configure(_:)` y sirve peticiones hasta el apagado.
+
+                @Code(name: "Sources/App/Entrypoint.swift", file: "t1-02-entrypoint.swift", reset: true)
+            }
+        }
+    }
+
+    @Section(title: "Configura Postgres y expón /health") {
+        @ContentAndMedia {
+            `configure(_:)` es el único sitio donde escribes código propio en este
+            tutorial: conecta Postgres y registra el health check, ambos aportados por
+            el kit.
+
+            @Image(source: "flujo-arranque", alt: "Diagrama del arranque de la app, desde Package.swift hasta GET /health respondiendo 200 OK.")
+        }
+
+        @Steps {
+            @Step {
+                Crea `Sources/App/configure.swift` con la función que `Entrypoint.swift`
+                ya espera.
+
+                @Code(name: "Sources/App/configure.swift", file: "t1-03a-configure.swift", reset: true)
+            }
+
+            @Step {
+                Añade la conexión a Postgres con
+                ``makePostgresConfiguration(from:)``. Los valores por defecto
+                (`localhost`, `postgres`/`postgres`/`postgres`, sin TLS) son los de un
+                Postgres local típico — sobreescríbelos con las variables `DATABASE_*`
+                cuando despliegues contra Neon.
+
+                @Code(name: "Sources/App/configure.swift", file: "t1-03b-configure.swift")
+            }
+
+            @Step {
+                Registra `GET /health` con una sola línea. La ruta ya sabe consultar la
+                base de datos que acabas de configurar.
+
+                @Code(name: "Sources/App/configure.swift", file: "t1-03c-configure.swift")
+            }
+        }
+    }
+
+    @Section(title: "Ejecuta y comprueba") {
+        @ContentAndMedia {
+            Arranca un Postgres local desechable, ejecuta el servidor, y confirma que
+            `/health` responde.
+
+            @Image(source: "flujo-arranque", alt: "Diagrama del arranque de la app, desde Package.swift hasta GET /health respondiendo 200 OK.")
+        }
+
+        @Steps {
+            @Step {
+                Levanta un Postgres local desechable (o usa uno que ya tengas
+                corriendo en `localhost:5432` con esas mismas credenciales).
+
+                @Code(name: "Terminal", file: "t1-04-run-postgres.sh", reset: true)
+            }
+
+            @Step {
+                Ejecuta el servidor y, en otra terminal, comprueba `/health`. Deberías
+                ver `{"isHealthy":true,"message":"Database connection is healthy."}`.
+
+                @Code(name: "Terminal", file: "t1-05-run-and-curl.sh")
+            }
+        }
+    }
+}
