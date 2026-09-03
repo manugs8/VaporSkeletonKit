@@ -14,6 +14,7 @@ isn't business logic.
 
 - [Requirements](#requirements)
 - [Installation](#installation)
+- [App entrypoint](#app-entrypoint)
 - [Postgres configuration](#postgres-configuration)
 - [OpenAPI / Swagger UI serving](#openapi--swagger-ui-serving)
 - [MCP server mounting](#mcp-server-mounting)
@@ -33,6 +34,28 @@ isn't business logic.
 
 Add `"VaporSkeletonKit"` as a dependency of the target that calls `configure(_:)` on
 your `Application`.
+
+## App entrypoint
+
+`runApp(configure:)` wraps the environment-detection, logging bootstrap, and lifecycle
+boilerplate (`Application.make`, running until shutdown, tearing down) that's identical
+across every project built from this kit. Your `@main` entrypoint only needs to say
+which `configure(_:)` to run:
+
+```swift
+import Vapor
+import VaporSkeletonKit
+
+@main
+enum Entrypoint {
+    static func main() async throws {
+        try await runApp(configure: configure)
+    }
+}
+```
+
+If `configure` throws, the error is logged and the `Application` is shut down before
+being rethrown — the server never starts serving on a half-configured app.
 
 ## Postgres configuration
 
