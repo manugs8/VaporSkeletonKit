@@ -2,22 +2,23 @@ import Fluent
 import FluentPostgresDriver
 import Vapor
 
-/// The environment-derived values needed to build a Postgres database configuration.
+/// Los valores derivados del entorno necesarios para construir una configuración de
+/// base de datos Postgres.
 ///
-/// Two configuration styles are supported:
+/// Se admiten dos estilos de configuración:
 ///
-/// 1. A single `databaseURL` connection string (the format Neon provides directly).
-///    This is the production path: Neon requires TLS on every connection, so it is
-///    always established with `.require`.
-/// 2. Discrete `host`, `port`, `username`, `password`, and `database` values, used when
-///    `databaseURL` is `nil`. This is the local development path (e.g. a Postgres
-///    running on `localhost`), so TLS defaults to required but can be turned off with
-///    `tlsDisabled`.
+/// 1. Una única cadena de conexión `databaseURL` (el formato que proporciona Neon
+///    directamente). Este es el camino de producción: Neon exige TLS en cada conexión,
+///    así que siempre se establece con `.require`.
+/// 2. Valores discretos de `host`, `port`, `username`, `password` y `database`, usados
+///    cuando `databaseURL` es `nil`. Este es el camino de desarrollo local (p. ej. un
+///    Postgres corriendo en `localhost`), así que TLS es obligatorio por defecto pero
+///    se puede desactivar con `tlsDisabled`.
 ///
-/// The caller reads its own process environment (however it names its variables) and
-/// passes the resulting values in here — this type never reads `Environment` itself,
-/// mirroring how `WorkOSBearerAuth`'s `BearerAuthEnvironmentConfig` is populated by its
-/// caller.
+/// El llamador lee su propio entorno de proceso (con los nombres de variable que
+/// prefiera) y pasa aquí los valores resultantes — este tipo nunca lee `Environment`
+/// por sí mismo, siguiendo el mismo patrón con el que `BearerAuthEnvironmentConfig` de
+/// `WorkOSBearerAuth` es rellenado por quien la usa.
 public struct PostgresEnvironmentConfig: Sendable {
     public let databaseURL: String?
     public let host: String?
@@ -27,7 +28,7 @@ public struct PostgresEnvironmentConfig: Sendable {
     public let database: String?
     public let tlsDisabled: Bool
 
-    /// Creates a new configuration from already-read environment values.
+    /// Crea una nueva configuración a partir de valores de entorno ya leídos.
     public init(
         databaseURL: String?,
         host: String?,
@@ -47,10 +48,10 @@ public struct PostgresEnvironmentConfig: Sendable {
     }
 }
 
-/// Errors that can occur while assembling a Postgres database configuration.
+/// Errores que pueden ocurrir al ensamblar una configuración de base de datos Postgres.
 public enum PostgresConfigurationError: Error, CustomStringConvertible, Sendable {
-    /// Neither `databaseURL` nor the discrete host/username/password/database values were
-    /// fully set.
+    /// Ni `databaseURL` ni los valores discretos de host/username/password/database
+    /// estaban completos.
     case missingDatabaseEnvironment
 
     public var description: String {
@@ -62,13 +63,14 @@ public enum PostgresConfigurationError: Error, CustomStringConvertible, Sendable
     }
 }
 
-/// Builds a Postgres database configuration from an already-read set of environment
-/// values.
+/// Construye una configuración de base de datos Postgres a partir de un conjunto de
+/// valores de entorno ya leídos.
 ///
-/// - Parameter config: The environment-derived configuration values.
-/// - Throws: `PostgresConfigurationError.missingDatabaseEnvironment` if neither
-///   `config.databaseURL` nor the full set of discrete fields is present.
-/// - Returns: A `DatabaseConfigurationFactory` ready to be registered on `app.databases`.
+/// - Parameter config: Los valores de configuración derivados del entorno.
+/// - Throws: `PostgresConfigurationError.missingDatabaseEnvironment` si ni
+///   `config.databaseURL` ni el conjunto completo de campos discretos están presentes.
+/// - Returns: Un `DatabaseConfigurationFactory` listo para registrarse en
+///   `app.databases`.
 public func makePostgresConfiguration(from config: PostgresEnvironmentConfig) throws -> DatabaseConfigurationFactory {
     if let databaseURL = config.databaseURL {
         var sqlConfiguration = try SQLPostgresConfiguration(url: databaseURL)
@@ -101,8 +103,9 @@ public func makePostgresConfiguration(from config: PostgresEnvironmentConfig) th
     return .postgres(configuration: sqlConfiguration)
 }
 
-/// Builds a permissive TLS context suitable for managed Postgres providers (e.g. Neon)
-/// whose certificates are signed by a public CA but which are reached without pinning.
+/// Construye un contexto TLS permisivo, adecuado para proveedores gestionados de
+/// Postgres (p. ej. Neon) cuyos certificados están firmados por una CA pública pero a
+/// los que se accede sin pinning.
 private func makeNIOSSLContext() throws -> NIOSSLContext {
     var tlsConfiguration = TLSConfiguration.makeClientConfiguration()
     tlsConfiguration.certificateVerification = .none

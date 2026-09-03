@@ -2,17 +2,18 @@ import Fluent
 import FluentPostgresDriver
 import Vapor
 
-/// An abstraction over a service capable of reporting whether its dependencies are healthy.
+/// Una abstracción sobre un servicio capaz de informar si sus dependencias están sanas.
 ///
-/// Conforming types back the `/health` route registered by ``registerHealthRoute(_:)``.
-/// Depending on this protocol rather than a concrete type keeps the health check
-/// testable: production code can inject `DatabaseHealthChecker`, while tests can inject
-/// a stub that returns a fixed result.
+/// Los tipos que se ajustan a este protocolo respaldan la ruta `/health` registrada por
+/// ``registerHealthRoute(_:)``. Depender de este protocolo en lugar de un tipo concreto
+/// mantiene el health check testeable: el código de producción puede inyectar
+/// `DatabaseHealthChecker`, mientras que los tests pueden inyectar un stub que devuelva
+/// un resultado fijo.
 public protocol HealthChecking: Sendable {
-    /// Checks the health of the underlying dependency.
+    /// Comprueba la salud de la dependencia subyacente.
     ///
-    /// - Parameter database: The database to check connectivity against.
-    /// - Returns: A `HealthStatus` describing the outcome of the check.
+    /// - Parameter database: La base de datos contra la que comprobar la conectividad.
+    /// - Returns: Un `HealthStatus` que describe el resultado de la comprobación.
     func check(on database: any Database) async -> HealthStatus
 }
 
@@ -21,10 +22,11 @@ extension Application {
         typealias Value = any HealthChecking
     }
 
-    /// The `HealthChecking` implementation used by the `/health` route.
+    /// La implementación de `HealthChecking` usada por la ruta `/health`.
     ///
-    /// Defaults to `DatabaseHealthChecker` if never set. Tests can override this with a
-    /// stub implementation to exercise the route without a real database.
+    /// Por defecto es `DatabaseHealthChecker` si nunca se establece otra. Los tests
+    /// pueden sobreescribir este valor con una implementación stub para ejercitar la
+    /// ruta sin una base de datos real.
     public var healthChecker: any HealthChecking {
         get {
             self.storage[HealthCheckerKey.self] ?? DatabaseHealthChecker()
@@ -35,17 +37,18 @@ extension Application {
     }
 }
 
-/// A `HealthChecking` implementation that verifies database connectivity by executing a
-/// trivial query directly against the configured Postgres connection.
+/// Una implementación de `HealthChecking` que verifica la conectividad con Postgres
+/// ejecutando una consulta trivial directamente contra la conexión configurada.
 public struct DatabaseHealthChecker: HealthChecking {
-    /// Creates a new database health checker.
+    /// Crea un nuevo comprobador de salud de base de datos.
     public init() {}
 
-    /// Runs `SELECT 1` against the given database to confirm the connection is alive.
+    /// Ejecuta `SELECT 1` contra la base de datos dada para confirmar que la conexión
+    /// está viva.
     ///
-    /// - Parameter database: The database to check connectivity against.
-    /// - Returns: A healthy `HealthStatus` if the query succeeds, otherwise an unhealthy
-    ///   one describing the failure.
+    /// - Parameter database: La base de datos contra la que comprobar la conectividad.
+    /// - Returns: Un `HealthStatus` sano si la consulta tiene éxito, o uno no sano que
+    ///   describe el fallo en caso contrario.
     public func check(on database: any Database) async -> HealthStatus {
         guard let postgres = database as? any PostgresDatabase else {
             return HealthStatus(isHealthy: false, message: "Configured database is not PostgreSQL.")
@@ -59,19 +62,19 @@ public struct DatabaseHealthChecker: HealthChecking {
     }
 }
 
-/// The result of a health check, returned as the JSON body of `GET /health`.
+/// El resultado de una comprobación de salud, devuelto como cuerpo JSON de `GET /health`.
 public struct HealthStatus: Content, Equatable, Sendable {
-    /// Whether the checked dependency is reachable and functioning.
+    /// Si la dependencia comprobada es alcanzable y funciona correctamente.
     public let isHealthy: Bool
 
-    /// A human-readable description of the check result.
+    /// Una descripción legible por humanos del resultado de la comprobación.
     public let message: String
 
-    /// Creates a new health status.
+    /// Crea un nuevo estado de salud.
     ///
     /// - Parameters:
-    ///   - isHealthy: Whether the checked dependency is healthy.
-    ///   - message: A human-readable description of the result.
+    ///   - isHealthy: Si la dependencia comprobada está sana.
+    ///   - message: Una descripción legible por humanos del resultado.
     public init(isHealthy: Bool, message: String) {
         self.isHealthy = isHealthy
         self.message = message

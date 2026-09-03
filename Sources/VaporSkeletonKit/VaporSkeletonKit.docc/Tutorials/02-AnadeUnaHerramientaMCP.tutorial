@@ -1,0 +1,82 @@
+@Tutorial(time: 12) {
+    @Intro(title: "Añade una herramienta MCP propia") {
+        Partiendo del servidor del tutorial anterior, vas a montar un servidor MCP con
+        ``mountMCPServer(_:name:version:instructions:tools:resources:path:)``,
+        implementar tu primera ``MCPTool`` propia, manejar sus errores con
+        ``MCPToolError``, y probarla con `sendMCP` de `VaporSkeletonKitTesting`.
+
+        @Image(source: "flujo-peticion-mcp", alt: "Ciclo de vida de una petición tools/call, desde el cliente MCP hasta la herramienta y de vuelta.")
+    }
+
+    @Section(title: "Monta el servidor MCP") {
+        @ContentAndMedia {
+            `mountMCPServer` monta `/mcp` sobre la misma `Application` — sin tocar
+            `Entrypoint.swift` ni la autenticación que ya tengas configurada.
+
+            @Image(source: "flujo-peticion-mcp", alt: "Ciclo de vida de una petición tools/call, desde el cliente MCP hasta la herramienta y de vuelta.")
+        }
+
+        @Steps {
+            @Step {
+                Añade `mountMCPServer` al final de `configure(_:)`, de momento sin
+                ninguna herramienta.
+
+                @Code(name: "Sources/App/configure.swift", file: "t2-01-configure-mcp.swift")
+            }
+        }
+    }
+
+    @Section(title: "Implementa tu MCPTool") {
+        @ContentAndMedia {
+            Una `MCPTool` es un nombre, un esquema de entrada/salida, y un `call(arguments:)`
+            — nada aquí conoce el resto de la infraestructura del kit.
+
+            @Image(source: "flujo-peticion-mcp", alt: "Ciclo de vida de una petición tools/call, desde el cliente MCP hasta la herramienta y de vuelta.")
+        }
+
+        @Steps {
+            @Step {
+                Crea `Sources/App/Tools/ListWidgetsTool.swift`. `app` llega por
+                inicializador, igual que en ``GetHealthTool``, para poder consultar
+                `app.db` desde `call(arguments:)`.
+
+                @Code(name: "Sources/App/Tools/ListWidgetsTool.swift", file: "t2-02a-tool.swift", reset: true)
+            }
+
+            @Step {
+                Envuelve la consulta en un `do/catch` que traduzca cualquier fallo de
+                Fluent a ``MCPToolError/database(_:)``. Así, si la consulta falla, el
+                modelo que llamó a la herramienta recibe un resultado que puede leer
+                (`isError: true` y un `kind` de error), no una petición HTTP rota.
+
+                @Code(name: "Sources/App/Tools/ListWidgetsTool.swift", file: "t2-02b-tool.swift")
+            }
+        }
+    }
+
+    @Section(title: "Regístrala y pruébala") {
+        @ContentAndMedia {
+            Añade la herramienta al array de `mountMCPServer`, y comprueba que responde
+            con un test de integración usando `withTestApp`/`sendMCP`.
+
+            @Image(source: "flujo-peticion-mcp", alt: "Ciclo de vida de una petición tools/call, desde el cliente MCP hasta la herramienta y de vuelta.")
+        }
+
+        @Steps {
+            @Step {
+                Vuelve a `configure.swift` y añade `ListWidgetsTool(app: app)` al array
+                `tools:` de `mountMCPServer`.
+
+                @Code(name: "Sources/App/configure.swift", file: "t2-03-configure-final.swift", reset: true)
+            }
+
+            @Step {
+                En tu target de tests (con `VaporSkeletonKitTesting` como dependencia),
+                usa `withTestApp` para levantar la app y `sendMCP` para llamar a
+                `list_widgets` como lo haría un cliente MCP real.
+
+                @Code(name: "Tests/AppTests/ListWidgetsToolTests.swift", file: "t2-04-test.swift", reset: true)
+            }
+        }
+    }
+}

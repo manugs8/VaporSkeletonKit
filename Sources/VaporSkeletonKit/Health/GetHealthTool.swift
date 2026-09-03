@@ -1,10 +1,10 @@
 import MCP
 import Vapor
 
-/// Checks application and database health.
+/// Comprueba la salud de la aplicación y de la conexión a la base de datos.
 ///
-/// Equivalent to `GET /health` (``registerHealthRoute(_:)``) — reuses the same
-/// `app.healthChecker`, rather than duplicating the check.
+/// Equivalente a `GET /health` (``registerHealthRoute(_:)``) — reutiliza el mismo
+/// `app.healthChecker` en lugar de duplicar la comprobación.
 public struct GetHealthTool: MCPTool {
     let app: Application
 

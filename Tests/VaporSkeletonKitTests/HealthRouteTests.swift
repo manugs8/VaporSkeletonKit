@@ -26,8 +26,9 @@ struct HealthRouteTests {
         try await app.asyncShutdown()
     }
 
-    /// Proves the route depends only on the `HealthChecking` protocol, not a concrete
-    /// database check — the injected stub decides the outcome regardless of `req.db`.
+    /// Demuestra que la ruta depende solo del protocolo `HealthChecking`, no de una
+    /// comprobación de base de datos concreta — el stub inyectado decide el resultado
+    /// independientemente de `req.db`.
     @Test("Reports unhealthy and 503 when the checker fails")
     func unhealthyWhenCheckerFails() async throws {
         let app = try await Application.make(.testing)
@@ -50,16 +51,19 @@ struct HealthRouteTests {
     }
 }
 
-/// Configures a real Postgres connection for this suite — `registerHealthRoute` reads
-/// `req.db` unconditionally (even the stub test below needs *some* database configured,
-/// since the stub only ignores its *result*, not whether `req.db` resolves at all).
+/// Configura una conexión Postgres real para esta suite — `registerHealthRoute` lee
+/// `req.db` incondicionalmente (incluso el test con stub de abajo necesita *alguna*
+/// base de datos configurada, ya que el stub solo ignora su *resultado*, no si
+/// `req.db` llega a resolverse).
 ///
-/// Same `DATABASE_*` variable names as every consuming project's own CI Postgres
-/// service (§5.2), so this suite runs unmodified once this repo gets a CI workflow of
-/// its own. With no env set, defaults to a plain local Postgres on `localhost` with TLS
-/// disabled — the common local dev setup — rather than requiring TLS, unlike
-/// `configure.swift`'s own default; override with `DATABASE_TLS=require` for the
-/// stricter behavior.
+/// Mismos nombres de variable `DATABASE_*` que usa el propio servicio Postgres de CI de
+/// cualquier proyecto consumidor (§5.2), así que esta suite se ejecuta sin
+/// modificaciones ahora que este repo tiene su propio workflow de CI
+/// (`.github/workflows/ci.yml`). Sin ninguna variable de entorno establecida, usa por
+/// defecto un Postgres local sencillo en `localhost` con TLS desactivado — la
+/// configuración habitual de desarrollo local — en lugar de exigir TLS, a diferencia
+/// del valor por defecto del propio `configure.swift`; sobreescribe con
+/// `DATABASE_TLS=require` para el comportamiento más estricto.
 private func configureTestDatabase(_ app: Application) throws {
     app.databases.use(
         try makePostgresConfiguration(from: PostgresEnvironmentConfig(
@@ -75,8 +79,9 @@ private func configureTestDatabase(_ app: Application) throws {
     )
 }
 
-/// A `HealthChecking` stub that always returns a fixed result, used to test the
-/// `/health` route in isolation from a real database's query outcome.
+/// Un stub de `HealthChecking` que siempre devuelve un resultado fijo, usado para
+/// testear la ruta `/health` de forma aislada del resultado real de una consulta a la
+/// base de datos.
 private struct StubHealthChecker: HealthChecking {
     let result: HealthStatus
 

@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 620" font-family="-apple-system, Helvetica, Arial, sans-serif">
+  <rect x="0" y="0" width="900" height="620" fill="#ffffff"/>
+  <text x="450" y="35" text-anchor="middle" font-size="20" font-weight="700" fill="#1a1a1a">Pipeline de CI/CD compartido</text>
+  <text x="450" y="55" text-anchor="middle" font-size="12" fill="#6a6a6a">definido una vez aquí, referenciado por path desde cada proyecto consumidor</text>
+
+  <!-- consumer ci.yml -->
+  <rect x="300" y="80" width="300" height="60" rx="8" fill="#eefaf0" stroke="#2e9e5b" stroke-width="2"/>
+  <text x="450" y="105" text-anchor="middle" font-size="14" font-weight="600" fill="#1a1a1a">ci.yml del consumidor</text>
+  <text x="450" y="123" text-anchor="middle" font-size="11" fill="#3a3a3a">on: push / pull_request → uses: reusable-ci.yml@main</text>
+
+  <line x1="450" y1="140" x2="450" y2="170" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+
+  <!-- reusable-ci.yml jobs -->
+  <rect x="90" y="170" width="720" height="150" rx="8" fill="#eef4ff" stroke="#3b6fd4" stroke-width="2"/>
+  <text x="450" y="192" text-anchor="middle" font-size="14" font-weight="700" fill="#1a1a1a">reusable-ci.yml</text>
+
+  <rect x="110" y="205" width="160" height="95" rx="6" fill="#ffffff" stroke="#3b6fd4"/>
+  <text x="190" y="225" text-anchor="middle" font-size="11" font-weight="600" fill="#1a1a1a">unit-tests</text>
+  <text x="190" y="242" text-anchor="middle" font-size="10" fill="#3a3a3a">swift test --filter</text>
+  <text x="190" y="256" text-anchor="middle" font-size="10" fill="#3a3a3a">AppUnitTests</text>
+  <text x="190" y="277" text-anchor="middle" font-size="10" fill="#6a6a6a">imagen leída del</text>
+  <text x="190" y="291" text-anchor="middle" font-size="10" fill="#6a6a6a">Dockerfile: FROM ... AS build</text>
+
+  <rect x="290" y="205" width="160" height="95" rx="6" fill="#ffffff" stroke="#3b6fd4"/>
+  <text x="370" y="225" text-anchor="middle" font-size="11" font-weight="600" fill="#1a1a1a">integration-tests</text>
+  <text x="370" y="242" text-anchor="middle" font-size="10" fill="#3a3a3a">+ servicio postgres:16</text>
+  <text x="370" y="256" text-anchor="middle" font-size="10" fill="#3a3a3a">AppIntegrationTests</text>
+  <text x="370" y="277" text-anchor="middle" font-size="10" fill="#6a6a6a">AUTH_DISABLED=true</text>
+
+  <rect x="470" y="205" width="160" height="95" rx="6" fill="#ffffff" stroke="#3b6fd4"/>
+  <text x="550" y="225" text-anchor="middle" font-size="11" font-weight="600" fill="#1a1a1a">docker-build</text>
+  <text x="550" y="242" text-anchor="middle" font-size="10" fill="#3a3a3a">construye la imagen</text>
+  <text x="550" y="256" text-anchor="middle" font-size="10" fill="#3a3a3a">de producción</text>
+  <text x="550" y="277" text-anchor="middle" font-size="10" fill="#6a6a6a">(sin publicarla)</text>
+
+  <rect x="650" y="205" width="140" height="95" rx="6" fill="#ffffff" stroke="#3b6fd4"/>
+  <text x="720" y="225" text-anchor="middle" font-size="11" font-weight="600" fill="#1a1a1a">lint-openapi</text>
+  <text x="720" y="242" text-anchor="middle" font-size="10" fill="#3a3a3a">Redocly lint sobre</text>
+  <text x="720" y="256" text-anchor="middle" font-size="10" fill="#3a3a3a">openapi.yaml</text>
+
+  <!-- merge to main triggers deploy -->
+  <line x1="450" y1="320" x2="450" y2="350" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+  <text x="580" y="340" text-anchor="middle" font-size="11" fill="#1a1a1a">merge a main → Render redespliega</text>
+
+  <rect x="300" y="360" width="300" height="60" rx="8" fill="#fff6e8" stroke="#c98a1a" stroke-width="2"/>
+  <text x="450" y="385" text-anchor="middle" font-size="13" font-weight="600" fill="#1a1a1a">reusable-deploy-smoke.yml</text>
+  <text x="450" y="403" text-anchor="middle" font-size="11" fill="#3a3a3a">poll con backoff a GET /health</text>
+
+  <line x1="450" y1="420" x2="450" y2="450" stroke="#555" stroke-width="2" marker-end="url(#a)"/>
+
+  <rect x="220" y="460" width="460" height="90" rx="8" fill="#f5eeff" stroke="#7c4fd4" stroke-width="2"/>
+  <text x="450" y="482" text-anchor="middle" font-size="13" font-weight="600" fill="#1a1a1a">reusable-e2e.yml (cuando el proyecto lo activa)</text>
+  <text x="450" y="500" text-anchor="middle" font-size="11" fill="#3a3a3a">imagen de producción real + rama Neon efímera</text>
+  <text x="450" y="516" text-anchor="middle" font-size="11" fill="#3a3a3a">(creada a partir de e2e-base, destruida al terminar)</text>
+  <text x="450" y="532" text-anchor="middle" font-size="11" fill="#3a3a3a">+ túnel Cloudflare simulando el issuer de WorkOS</text>
+
+  <text x="450" y="590" text-anchor="middle" font-size="12" fill="#6a6a6a">Una corrección en cualquiera de estos ficheros, hecha aquí, llega a todos los consumidores</text>
+  <text x="450" y="608" text-anchor="middle" font-size="12" fill="#6a6a6a">en su siguiente ejecución de CI — sin tocar el repositorio de cada uno.</text>
+
+  <defs>
+    <marker id="a" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#555"/>
+    </marker>
+    <marker id="o" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#c98a1a"/>
+    </marker>
+  </defs>
+</svg>

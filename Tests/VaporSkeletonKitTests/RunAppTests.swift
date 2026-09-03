@@ -3,10 +3,10 @@ import Vapor
 
 @testable import VaporSkeletonKit
 
-/// Exercises the internal `runApp(_:configure:)` core against `Application.make(.testing)`
-/// rather than the public `runApp(configure:)` entrypoint — the latter calls
-/// `LoggingSystem.bootstrap(from:)`, which can only run once per process and so can't be
-/// invoked repeatedly from a test suite.
+/// Ejercita el núcleo interno `runApp(_:configure:)` contra `Application.make(.testing)`
+/// en lugar del entrypoint público `runApp(configure:)` — este último llama a
+/// `LoggingSystem.bootstrap(from:)`, que solo puede ejecutarse una vez por proceso y
+/// por tanto no es algo que una suite de tests pueda invocar repetidamente.
 @Suite("Run App")
 struct RunAppTests {
     @Test("Calls configure with the booted Application before serving")

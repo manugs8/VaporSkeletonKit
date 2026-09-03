@@ -1,17 +1,19 @@
 import MCP
 
-/// Builds a fresh, fully-wired `MCP.Server` from a set of tools and resources.
+/// Construye un `MCP.Server` nuevo y completamente configurado a partir de un conjunto
+/// de herramientas y recursos.
 ///
-/// Callers must build a new server (and a new transport) per HTTP request rather than
-/// reusing one long-lived instance — see `MCPHTTPBridge` for why.
+/// Los llamadores deben construir un servidor nuevo (y un transporte nuevo) por cada
+/// petición HTTP en lugar de reutilizar una única instancia de larga duración — ver
+/// `MCPHTTPBridge` para el motivo.
 public enum MCPServerFactory {
     /// - Parameters:
-    ///   - name: The name the server advertises to any client that connects.
-    ///   - version: The server's version string.
-    ///   - instructions: Free-text guidance shown to the connecting model about what
-    ///     this server's tools/resources are for.
-    ///   - tools: The tools to expose via `tools/list`/`tools/call`.
-    ///   - resources: The resources to expose via `resources/list`/`resources/read`.
+    ///   - name: El nombre que el servidor anuncia a cualquier cliente que se conecte.
+    ///   - version: La cadena de versión del servidor.
+    ///   - instructions: Guía en texto libre mostrada al modelo conectado sobre para
+    ///     qué sirven las herramientas/recursos de este servidor.
+    ///   - tools: Las herramientas a exponer vía `tools/list`/`tools/call`.
+    ///   - resources: Los recursos a exponer vía `resources/list`/`resources/read`.
     public static func makeServer(
         name: String,
         version: String,
@@ -51,15 +53,16 @@ public enum MCPServerFactory {
     }
 }
 
-/// Dispatches `tools/call` and `resources/read` requests to the matching registered
-/// tool or resource by name/URI.
+/// Despacha peticiones `tools/call` y `resources/read` a la herramienta o recurso
+/// registrado que coincida por nombre/URI.
 enum MCPToolDispatch {
-    /// Routes a `tools/call` request, converting any thrown ``MCPToolError`` (or other
-    /// error) into an `isError: true` result rather than a transport-level failure.
+    /// Enruta una petición `tools/call`, convirtiendo cualquier ``MCPToolError``
+    /// lanzado (u otro error) en un resultado con `isError: true` en lugar de un fallo
+    /// a nivel de transporte.
     ///
-    /// An unknown tool name is the one case reported as a JSON-RPC protocol error
-    /// (`invalidParams`), since that indicates a client bug rather than a recoverable
-    /// domain condition.
+    /// Un nombre de herramienta desconocido es el único caso que se reporta como un
+    /// error de protocolo JSON-RPC (`invalidParams`), ya que eso indica un fallo del
+    /// cliente y no una condición de dominio recuperable.
     static func call(_ params: CallTool.Parameters, tools: [any MCPTool]) async -> CallTool.Result {
         guard let tool = tools.first(where: { $0.name == params.name }) else {
             return MCPToolError.invalidArgument("Unknown tool: \(params.name)").callToolResult
@@ -73,8 +76,9 @@ enum MCPToolDispatch {
         }
     }
 
-    /// Routes a `resources/read` request. Resources have no soft-error channel, so
-    /// failures are thrown as `MCPError` and surfaced as JSON-RPC errors.
+    /// Enruta una petición `resources/read`. Los recursos no tienen un canal de error
+    /// "suave", así que los fallos se lanzan como `MCPError` y se muestran como errores
+    /// JSON-RPC.
     static func read(
         _ params: ReadResource.Parameters,
         resources: [any MCPResource]

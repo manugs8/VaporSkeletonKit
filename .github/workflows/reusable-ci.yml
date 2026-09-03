@@ -4,7 +4,7 @@ name: Reusable CI
 # directly-triggered one (`on: workflow_call` only — this file never runs on its own
 # push/PR). VaporSkeletonKit has no app of its own to build, so nothing here ever
 # triggers this workflow directly — it exists purely as the shared, canonical copy.
-# Consumers (BackendSkeleton, FinanceCore, ...) reference it by path —
+# Consumer projects reference it by path —
 # `uses: manugs8/VaporSkeletonKit/.github/workflows/reusable-ci.yml@main` (or a pinned
 # tag) — so a fix landed here reaches every caller without editing each project's own
 # workflow file, the same way bumping a Swift package version does. `actions/checkout`

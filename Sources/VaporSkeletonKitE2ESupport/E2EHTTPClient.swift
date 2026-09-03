@@ -1,12 +1,13 @@
 import Foundation
 #if canImport(FoundationNetworking)
-// URLSession/URLRequest/HTTPURLResponse live in a separate module on Linux (they're
-// still part of Foundation on Apple platforms) — needed explicitly for E2E suites that
-// run their production Docker image under a Linux CI runner.
+// URLSession/URLRequest/HTTPURLResponse viven en un módulo separado en Linux (en
+// plataformas Apple siguen siendo parte de Foundation) — necesario explícitamente para
+// suites E2E que ejecutan su imagen Docker de producción en un runner de CI Linux.
 import FoundationNetworking
 #endif
 
-/// A failure returned by the real HTTP server, as opposed to a transport-level error.
+/// Un fallo devuelto por el servidor HTTP real, en contraposición a un error a nivel de
+/// transporte.
 public enum E2EHTTPError: Error, CustomStringConvertible {
     case unexpectedStatus(Int, body: String)
 
@@ -18,9 +19,10 @@ public enum E2EHTTPError: Error, CustomStringConvertible {
     }
 }
 
-/// A minimal REST client for E2E tests (and any deterministic seed sharing their
-/// support code), talking to a real running server over the network — never an
-/// in-process `Application`, unlike `VaporTesting`-based integration tests.
+/// Un cliente REST mínimo para tests E2E (y cualquier seed determinista que comparta su
+/// código de soporte), que habla con un servidor real en ejecución a través de la red
+/// — nunca con una `Application` en proceso, a diferencia de los tests de integración
+/// basados en `VaporTesting`.
 public struct E2EHTTPClient: Sendable {
     public struct Response: Sendable {
         public let status: Int
@@ -32,13 +34,14 @@ public struct E2EHTTPClient: Sendable {
     private let session: URLSession
 
     /// - Parameters:
-    ///   - baseURL: The server to talk to. Defaults to ``E2EEnvironment/baseURL``.
-    ///   - authToken: Produces the bearer token attached to authenticated requests, or
-    ///     `nil` to send no `Authorization` header. Called on every authenticated
-    ///     request, not cached — this function doesn't assume any particular auth
-    ///     package. Defaults to never attaching a token.
-    ///   - session: The `URLSession` to issue requests on. Defaults to `.shared`;
-    ///     overridable in tests.
+    ///   - baseURL: El servidor con el que hablar. Por defecto, ``E2EEnvironment/baseURL``.
+    ///   - authToken: Produce el bearer token que se adjunta a las peticiones
+    ///     autenticadas, o `nil` para no enviar ninguna cabecera `Authorization`. Se
+    ///     llama en cada petición autenticada, sin cachear el resultado — esta función
+    ///     no asume ningún paquete de autenticación en concreto. Por defecto, nunca
+    ///     adjunta ningún token.
+    ///   - session: La `URLSession` sobre la que emitir las peticiones. Por defecto,
+    ///     `.shared`; sobreescribible en tests.
     public init(
         baseURL: URL = E2EEnvironment.baseURL,
         authToken: @escaping @Sendable () async throws -> String? = { nil },
@@ -49,12 +52,12 @@ public struct E2EHTTPClient: Sendable {
         self.session = session
     }
 
-    /// Sends a request, optionally attaching `Authorization: Bearer <token>` from
-    /// ``authToken``.
+    /// Envía una petición, adjuntando opcionalmente `Authorization: Bearer <token>`
+    /// desde ``authToken``.
     ///
-    /// - Parameter authenticated: Pass `false` to intentionally omit the token, even if
-    ///   ``authToken`` would produce one — used by "rejects unauthenticated requests"
-    ///   scenarios.
+    /// - Parameter authenticated: Pasa `false` para omitir el token deliberadamente,
+    ///   incluso si ``authToken`` produciría uno — usado por los escenarios que
+    ///   verifican que se rechazan las peticiones no autenticadas.
     @discardableResult
     public func send(
         _ method: String,
@@ -81,8 +84,8 @@ public struct E2EHTTPClient: Sendable {
         try await send("GET", path, authenticated: authenticated)
     }
 
-    /// Sends a `POST` with a JSON-encoded body and decodes a JSON response, throwing
-    /// ``E2EHTTPError`` if the server didn't respond `200`.
+    /// Envía un `POST` con un cuerpo codificado en JSON y decodifica una respuesta
+    /// JSON, lanzando ``E2EHTTPError`` si el servidor no respondió `200`.
     public func post<Body: Encodable, Decoded: Decodable>(
         _ path: String,
         json: Body,

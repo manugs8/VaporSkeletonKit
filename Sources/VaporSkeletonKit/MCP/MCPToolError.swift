@@ -1,26 +1,29 @@
 import MCP
 
-/// A domain-level failure raised by an ``MCPTool``.
+/// Un fallo a nivel de dominio lanzado por una ``MCPTool``.
 ///
-/// Distinguishing these cases lets ``MCPToolDispatch`` report each one as a structured,
-/// `isError: true` tool result the calling model can actually read and react to, instead
-/// of a single generic error string.
+/// Distinguir estos casos permite que `MCPToolDispatch` reporte cada uno como un
+/// resultado de herramienta estructurado con `isError: true` que el modelo llamador
+/// puede realmente leer y ante el que puede reaccionar, en lugar de una única cadena de
+/// error genérica.
 public enum MCPToolError: Error, Sendable {
-    /// The arguments passed to the tool were missing, malformed, or otherwise invalid
-    /// (e.g. a non-UUID id, or an empty required field).
+    /// Los argumentos pasados a la herramienta faltaban, tenían un formato incorrecto o
+    /// eran inválidos por otro motivo (p. ej. un id que no es un UUID, o un campo
+    /// obligatorio vacío).
     case invalidArgument(String)
 
-    /// The requested resource does not exist (e.g. no record with the given id).
+    /// El recurso solicitado no existe (p. ej. no hay ningún registro con el id dado).
     case notFound(String)
 
-    /// The underlying database failed to complete the operation.
+    /// La base de datos subyacente no pudo completar la operación.
     case database(String)
 
-    /// An unexpected failure occurred that doesn't fit the other cases.
+    /// Ocurrió un fallo inesperado que no encaja en el resto de casos.
     case internalError(String)
 
-    /// A short, machine-readable label for this error case, included in structured
-    /// output so callers can branch on it without parsing the message text.
+    /// Una etiqueta corta y legible por máquina para este caso de error, incluida en la
+    /// salida estructurada para que los llamadores puedan bifurcar su lógica sin tener
+    /// que parsear el texto del mensaje.
     var kind: String {
         switch self {
         case .invalidArgument: return "invalid_argument"
@@ -30,7 +33,7 @@ public enum MCPToolError: Error, Sendable {
         }
     }
 
-    /// The human-readable message describing this error.
+    /// El mensaje legible por humanos que describe este error.
     var message: String {
         switch self {
         case .invalidArgument(let message), .notFound(let message), .database(let message),
@@ -39,9 +42,9 @@ public enum MCPToolError: Error, Sendable {
         }
     }
 
-    /// Renders this error as a tool call result with `isError: true`, so the calling
-    /// model sees it as a normal (if unsuccessful) tool response rather than a fatal
-    /// transport error.
+    /// Convierte este error en un resultado de llamada a herramienta con
+    /// `isError: true`, de modo que el modelo llamador lo vea como una respuesta normal
+    /// de herramienta (aunque sin éxito) en lugar de un error fatal de transporte.
     var callToolResult: CallTool.Result {
         CallTool.Result(
             content: [.text(text: message, annotations: nil, _meta: nil)],

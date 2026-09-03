@@ -1,11 +1,12 @@
 import Vapor
 
-/// Boots a real `Application`, binds it to an actual TCP socket on `127.0.0.1:port`, runs
-/// `test` against its real `http://` base URL, then guarantees teardown.
+/// Arranca una `Application` real, la vincula a un socket TCP real en
+/// `127.0.0.1:port`, ejecuta `test` contra su URL base `http://` real y garantiza
+/// después su desmontaje.
 ///
-/// Used to exercise `E2EHTTPClient`/`E2EMCPClient` against a genuine listening server —
-/// the whole point of both types is talking real HTTP, not `VaporTesting`'s in-process
-/// request dispatch.
+/// Se usa para ejercitar `E2EHTTPClient`/`E2EMCPClient` contra un servidor real
+/// escuchando — todo el sentido de ambos tipos es hablar HTTP real, no el despacho de
+/// peticiones en proceso de `VaporTesting`.
 func withRunningServer(
     port: Int,
     mount: (Application) throws -> Void,

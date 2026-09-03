@@ -1,0 +1,17 @@
+@Tutorials(name: "VaporSkeletonKit") {
+    @Intro(title: "Monta un backend con VaporSkeletonKit") {
+        Construye un servidor Vapor desde `Package.swift` en blanco hasta un servidor
+        con Postgres, un health check y una herramienta MCP propia — usando solo lo que
+        aporta este kit, sin escribir ningún código de infraestructura tú mismo.
+    }
+
+    @Chapter(name: "Tu primer backend") {
+        Arranca un proyecto nuevo, conéctalo a Postgres, expón `/health`, y añádele una
+        herramienta MCP propia que un agente pueda llamar.
+
+        @Image(source: "flujo-arranque", alt: "Diagrama del arranque de la app, desde Package.swift hasta GET /health respondiendo 200 OK.")
+
+        @TutorialReference(tutorial: "doc:01-MontaTuPrimerServidor")
+        @TutorialReference(tutorial: "doc:02-AnadeUnaHerramientaMCP")
+    }
+}

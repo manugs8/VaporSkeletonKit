@@ -1,9 +1,9 @@
 // swift-tools-version:6.0
 import PackageDescription
 
-// Swift 6 language mode enforces complete strict concurrency checking by default,
-// which is the equivalent of the `SWIFT_STRICT_CONCURRENCY=complete` build setting
-// used in Swift 5 mode.
+// El modo de lenguaje Swift 6 fuerza la comprobación estricta y completa de
+// concurrencia por defecto, lo cual equivale al build setting
+// `SWIFT_STRICT_CONCURRENCY=complete` usado en modo Swift 5.
 let package = Package(
     name: "VaporSkeletonKit",
     platforms: [
@@ -11,16 +11,17 @@ let package = Package(
     ],
     products: [
         .library(name: "VaporSkeletonKit", targets: ["VaporSkeletonKit"]),
-        // Separate from `VaporSkeletonKit` itself, same split WorkOSBearerAuth uses for
-        // its own `WorkOSBearerAuthTesting`: a consuming project's own test target links
-        // this to get the same `withTestApp`/`sendMCP` helpers this repo's tests use,
-        // instead of copy-pasting them.
+        // Separado del propio `VaporSkeletonKit`, el mismo split que usa WorkOSBearerAuth
+        // para su propio `WorkOSBearerAuthTesting`: el target de tests de un proyecto
+        // consumidor enlaza esto para obtener las mismas utilidades `withTestApp`/
+        // `sendMCP` que usan los tests de este repo, en lugar de copiarlas y pegarlas.
         .library(name: "VaporSkeletonKitTesting", targets: ["VaporSkeletonKitTesting"]),
-        // Deliberately dependency-light (no Vapor/Fluent), same reasoning as
-        // `VaporSkeletonKitTesting`/`WorkOSBearerAuthTesting`: E2E suites talk real
-        // HTTP/MCP to an already-running server (often the production Docker image),
-        // never an in-process `Application`, so they have no reason to link the
-        // server-side stack. Safe to share with a deterministic seed target too.
+        // Deliberadamente ligero en dependencias (sin Vapor/Fluent), mismo razonamiento
+        // que `VaporSkeletonKitTesting`/`WorkOSBearerAuthTesting`: las suites E2E hablan
+        // HTTP/MCP real con un servidor ya en ejecución (normalmente la imagen Docker de
+        // producción), nunca con una `Application` en proceso, así que no tienen motivo
+        // para enlazar la pila del lado del servidor. Seguro de compartir también con un
+        // target de seed determinista.
         .library(name: "VaporSkeletonKitE2ESupport", targets: ["VaporSkeletonKitE2ESupport"]),
     ],
     dependencies: [
@@ -28,6 +29,11 @@ let package = Package(
         .package(url: "https://github.com/vapor/fluent.git", from: "4.12.0"),
         .package(url: "https://github.com/vapor/fluent-postgres-driver.git", from: "2.9.0"),
         .package(url: "https://github.com/modelcontextprotocol/swift-sdk.git", from: "0.12.1"),
+        // Solo se usa como plugin de comando (`generate-documentation`/
+        // `preview-documentation`) para el catálogo DocC en
+        // Sources/VaporSkeletonKit/VaporSkeletonKit.docc — no se enlaza en ningún
+        // producto, así que no añade peso en tiempo de ejecución a ningún consumidor.
+        .package(url: "https://github.com/swiftlang/swift-docc-plugin.git", from: "1.5.0"),
     ],
     targets: [
         .target(

@@ -1,24 +1,27 @@
 import Foundation
 import MCP
 
-/// Builds a real `MCP.Client` connected over `HTTPClientTransport` — a genuine MCP
-/// client talking real HTTP/JSON-RPC to a running server, the same way an external
-/// agent would, rather than driving the server in-process.
+/// Construye un `MCP.Client` real conectado sobre `HTTPClientTransport` — un cliente
+/// MCP genuino que habla HTTP/JSON-RPC real con un servidor en ejecución, de la misma
+/// forma en que lo haría un agente externo, en lugar de manejar el servidor en proceso.
 public enum E2EMCPClient {
-    /// Connects a fresh `MCP.Client`, attaching `Authorization: Bearer <token>` from
-    /// `authToken` to every request.
+    /// Conecta un `MCP.Client` nuevo, adjuntando `Authorization: Bearer <token>` desde
+    /// `authToken` en cada petición.
     ///
     /// - Parameters:
-    ///   - baseURL: The server to connect to. Defaults to ``E2EEnvironment/baseURL``.
-    ///   - path: The route the MCP server is mounted on. Defaults to `"mcp"`, matching
-    ///     `mountMCPServer(_:...)`'s own default.
-    ///   - clientName: The name this client reports in the `initialize` handshake.
-    ///   - clientVersion: The version this client reports in the `initialize` handshake.
-    ///   - authenticated: Pass `false` to connect without a token, even if `authToken`
-    ///     would produce one — used by "rejects unauthenticated requests" scenarios.
-    ///   - authToken: Produces the bearer token attached when `authenticated` is `true`,
-    ///     or `nil` to send no `Authorization` header. This function doesn't assume any
-    ///     particular auth package. Defaults to never attaching a token.
+    ///   - baseURL: El servidor al que conectar. Por defecto, ``E2EEnvironment/baseURL``.
+    ///   - path: La ruta sobre la que está montado el servidor MCP. Por defecto,
+    ///     `"mcp"`, igual que el valor por defecto de `mountMCPServer(_:...)`.
+    ///   - clientName: El nombre que este cliente reporta en el handshake `initialize`.
+    ///   - clientVersion: La versión que este cliente reporta en el handshake
+    ///     `initialize`.
+    ///   - authenticated: Pasa `false` para conectar sin token, incluso si `authToken`
+    ///     produciría uno — usado por los escenarios que verifican que se rechazan las
+    ///     peticiones no autenticadas.
+    ///   - authToken: Produce el bearer token que se adjunta cuando `authenticated` es
+    ///     `true`, o `nil` para no enviar ninguna cabecera `Authorization`. Esta función
+    ///     no asume ningún paquete de autenticación en concreto. Por defecto, nunca
+    ///     adjunta ningún token.
     public static func connect(
         baseURL: URL = E2EEnvironment.baseURL,
         path: String = "mcp",
