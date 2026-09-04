@@ -27,6 +27,7 @@ explican no solo el qué, sino el porqué de cada pieza.
 - [Soporte E2E](#soporte-e2e)
 - [GitHub Actions compartidas](#github-actions-compartidas)
 - [Documentación DocC](#documentación-docc)
+- [Estándar de ingeniería](#estándar-de-ingeniería)
 - [Ejecutar los tests de este repo](#ejecutar-los-tests-de-este-repo)
 
 ## Requisitos
@@ -326,6 +327,16 @@ O, sin el plugin, directamente con `docc` (requiere Xcode):
 xcrun docc preview Sources/VaporSkeletonKit/VaporSkeletonKit.docc \
     --additional-symbol-graph-dir .build/symbol-graphs
 ```
+
+## Estándar de ingeniería
+
+[`docs/EstandarDeIngenieria.md`](docs/EstandarDeIngenieria.md) es la norma, no la
+implementación: qué debe cumplir un backend de este stack (arquitectura, niveles de
+test, estrategia de Neon, zonas protegidas para desarrollo asistido por IA, checklist de
+adopción...) y por qué, independientemente de cómo lo resuelva este paquete en concreto.
+El catálogo DocC de arriba documenta el cómo de cada pieza que este kit ya resuelve;
+donde ambos solapan, el documento del estándar enlaza al artículo correspondiente en vez
+de repetirlo.
 
 ## Ejecutar los tests de este repo
 
