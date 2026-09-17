@@ -23,9 +23,7 @@ registerOpenAPIDocs(app, specFilePath: "Sources/App/openapi.yaml", docsTitle: "M
 `specFilePath` se resuelve como `app.directory.workingDirectory + specFilePath`, no
 como una ruta absoluta ni como un recurso embebido en el binario. Esto es intencional:
 la misma llamada, con la misma ruta relativa, funciona tanto en desarrollo local
-(`swift run` desde la raíz del repo) como dentro de la imagen Docker de producción — con
-la única condición de que el `Dockerfile` copie el fichero YAML a esa misma ruta
-relativa dentro de la imagen. Si el fichero no existe en esa ruta, la petición a
+(`swift run` desde la raíz del repo) como en cualquier otro entorno, asumiendo que el archivo está ahí. Si el fichero no existe en esa ruta, la petición a
 `/openapi.yaml` responde `404` en lugar de fallar de forma más oscura.
 
 ## Lo que este kit no hace: generar código

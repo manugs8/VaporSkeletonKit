@@ -28,8 +28,7 @@ peso de dependencias distinto:
 Que sean tres productos y no uno solo importa: `VaporSkeletonKitTesting` nunca se enlaza
 en producción (evita que herramientas de test lleguen a un binario que se despliega), y
 `VaporSkeletonKitE2ESupport` deliberadamente no depende de Vapor — una suite E2E habla
-HTTP/MCP real contra un servidor que ya está corriendo (a menudo la imagen Docker de
-producción dentro de un contenedor), así que no tiene ningún motivo para enlazar la pila
+HTTP/MCP real contra un servidor que ya está corriendo (en un proceso en local o CI), así que no tiene ningún motivo para enlazar la pila
 completa del servidor. El mismo split que usa `WorkOSBearerAuth` para su propio
 `WorkOSBearerAuthTesting`.
 
@@ -84,8 +83,6 @@ Deliberadamente, `VaporSkeletonKit` no incluye:
 - **Generación de tipos desde el spec OpenAPI.** El kit sirve el fichero YAML crudo
   (<doc:DocumentacionOpenAPI>), pero no genera código — eso lo hace
   `swift-openapi-generator` sobre el propio spec del proyecto.
-- **Un `Dockerfile`.** Cada proyecto consumidor mantiene el suyo. Las pruebas se ejecutan
-  de manera local, sin requerir pipelines de CI acoplados.
 
 Si una pieza nueva es realmente genérica y libre de lógica de negocio, tiene sentido
 aquí. Si depende del dominio de un proyecto concreto, no.

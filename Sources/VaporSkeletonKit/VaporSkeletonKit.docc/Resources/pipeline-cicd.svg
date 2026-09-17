@@ -19,7 +19,7 @@
   <text x="190" y="242" text-anchor="middle" font-size="10" fill="#3a3a3a">swift test --filter</text>
   <text x="190" y="256" text-anchor="middle" font-size="10" fill="#3a3a3a">AppUnitTests</text>
   <text x="190" y="277" text-anchor="middle" font-size="10" fill="#6a6a6a">imagen leída del</text>
-  <text x="190" y="291" text-anchor="middle" font-size="10" fill="#6a6a6a">Dockerfile: FROM ... AS build</text>
+  <text x="190" y="291" text-anchor="middle" font-size="10" fill="#6a6a6a">Compilació de binarios</text>
 
   <rect x="290" y="205" width="160" height="95" rx="6" fill="#ffffff" stroke="#3b6fd4"/>
   <text x="370" y="225" text-anchor="middle" font-size="11" font-weight="600" fill="#1a1a1a">integration-tests</text>
@@ -28,7 +28,7 @@
   <text x="370" y="277" text-anchor="middle" font-size="10" fill="#6a6a6a">AUTH_DISABLED=true</text>
 
   <rect x="470" y="205" width="160" height="95" rx="6" fill="#ffffff" stroke="#3b6fd4"/>
-  <text x="550" y="225" text-anchor="middle" font-size="11" font-weight="600" fill="#1a1a1a">docker-build</text>
+  <text x="550" y="225" text-anchor="middle" font-size="11" font-weight="600" fill="#1a1a1a">build-app</text>
   <text x="550" y="242" text-anchor="middle" font-size="10" fill="#3a3a3a">construye la imagen</text>
   <text x="550" y="256" text-anchor="middle" font-size="10" fill="#3a3a3a">de producción</text>
   <text x="550" y="277" text-anchor="middle" font-size="10" fill="#6a6a6a">(sin publicarla)</text>

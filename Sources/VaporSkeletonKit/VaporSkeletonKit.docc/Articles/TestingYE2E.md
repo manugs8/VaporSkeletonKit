@@ -12,13 +12,11 @@ utilidades aporta `VaporSkeletonKitTesting`/`VaporSkeletonKitE2ESupport` en cada
   de dominio que probar.
 - **Integración** — la app completa, montada en proceso, contra un Postgres real.
   Aportado por `VaporSkeletonKitTesting`.
-- **E2E** — HTTP/MCP real contra un servidor ya en ejecución (a menudo la imagen Docker
-  de producción, en un contenedor). Aportado por `VaporSkeletonKitE2ESupport`.
+- **E2E** — HTTP/MCP real contra un servidor ya en ejecución. Aportado por `VaporSkeletonKitE2ESupport`.
 
 Cada nivel existe porque el anterior no puede detectar cierta clase de fallo: un test
 unitario no puede detectar que una migración de Fluent falla contra Postgres real; un
-test de integración en proceso no puede detectar que el `Dockerfile` de producción está
-roto, o que dos procesos independientes (cliente y servidor) no logran hablar por HTTP
+test de integración en proceso no puede detectar que dos procesos independientes (cliente y servidor) no logran hablar por HTTP
 real.
 
 ## Integración: `withTestApp` + Postgres real
@@ -57,7 +55,7 @@ que **ya está corriendo**, en otro proceso (o en otro contenedor por completo).
 
 `E2EEnvironment.baseURL` (de `VaporSkeletonKitE2ESupport`) lee `E2E_BASE_URL`, con la dirección local de `swift run`
 como valor por defecto, para que las mismas pruebas funcionen tanto contra un servidor
-arrancado a mano en local como contra un contenedor que levanta dependencias Docker.
+arrancado a mano en local o los equivalentes en CI.
 
 `E2EHTTPClient` es un cliente REST mínimo:
 

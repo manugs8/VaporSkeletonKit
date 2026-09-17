@@ -2,7 +2,7 @@ import Foundation
 #if canImport(FoundationNetworking)
 // URLSession/URLRequest/HTTPURLResponse viven en un módulo separado en Linux (en
 // plataformas Apple siguen siendo parte de Foundation) — necesario explícitamente para
-// suites E2E que ejecutan su imagen Docker de producción en un entorno Linux local.
+// suites E2E que se ejecutan en un entorno Linux local o remoto.
 import FoundationNetworking
 #endif
 

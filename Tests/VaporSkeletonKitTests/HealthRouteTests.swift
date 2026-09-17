@@ -56,7 +56,7 @@ struct HealthRouteTests {
 /// base de datos configurada, ya que el stub solo ignora su *resultado*, no si
 /// `req.db` llega a resolverse).
 ///
-/// Mismos nombres de variable `DATABASE_*` que se usan localmente y en dependencias Docker
+/// Mismos nombres de variable `DATABASE_*` que se usan localmente y en entornos
 /// cualquier proyecto consumidor (§5.2), así que esta suite se ejecuta sin
 /// modificaciones en local. Sin ninguna variable de entorno establecida, usa por
 /// defecto un Postgres local sencillo en `localhost` con TLS desactivado — la
