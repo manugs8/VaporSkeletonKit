@@ -251,6 +251,15 @@ xcrun docc preview Sources/VaporSkeletonKit/VaporSkeletonKit.docc \
     --additional-symbol-graph-dir .build/symbol-graphs
 ```
 
+## Estándar de ingeniería
+
+[`docs/EstandarDeIngenieria.md`](docs/EstandarDeIngenieria.md) es la norma, no la
+implementación: qué debe cumplir un backend de este stack (arquitectura, niveles de
+test, estrategia de Neon, checklist de
+adopción...) y por qué, independientemente de cómo lo resuelva este paquete en concreto.
+El catálogo DocC de arriba documenta el cómo de cada pieza que este kit ya resuelve;
+donde ambos solapan, el documento del estándar enlaza al artículo correspondiente en vez
+de repetirlo.
 
 ## Ejecutar los tests de este repo
 
