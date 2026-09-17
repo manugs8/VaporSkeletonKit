@@ -38,7 +38,5 @@ de negocio del proyecto — depende enteramente de su dominio —, así que no t
 aquí. Lo único genérico es *cómo se sirve* ese spec una vez escrito, y eso es lo que
 `registerOpenAPIDocs` resuelve.
 
-`reusable-ci.yml` (ver <doc:GitHubActionsCompartidas>) sí valida el spec en CI, con un
-job `lint-openapi` que ejecuta Redocly contra `Sources/App/openapi.yaml` — pero
-validar el YAML no es lo mismo que generarlo ni servirlo, y ese job vive en el pipeline
-de CI, no en este target.
+Las pruebas locales pueden validar el spec invocando Redocly contra `Sources/App/openapi.yaml` — pero
+validar el YAML no es lo mismo que generarlo ni servirlo.

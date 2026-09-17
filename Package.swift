@@ -34,6 +34,7 @@ let package = Package(
         // Sources/VaporSkeletonKit/VaporSkeletonKit.docc — no se enlaza en ningún
         // producto, así que no añade peso en tiempo de ejecución a ningún consumidor.
         .package(url: "https://github.com/swiftlang/swift-docc-plugin.git", from: "1.5.0"),
+        .package(path: "../AuthMock"),
     ],
     targets: [
         .target(
@@ -51,6 +52,7 @@ let package = Package(
             dependencies: [
                 .target(name: "VaporSkeletonKit"),
                 .product(name: "VaporTesting", package: "vapor"),
+                .product(name: "AuthMockServer", package: "AuthMock"),
             ],
             swiftSettings: swiftSettings
         ),
@@ -60,6 +62,7 @@ let package = Package(
                 .product(name: "Vapor", package: "vapor"),
                 .product(name: "Fluent", package: "fluent"),
                 .product(name: "VaporTesting", package: "vapor"),
+                .product(name: "AuthMockServer", package: "AuthMock"),
                 .product(name: "MCP", package: "swift-sdk"),
             ],
             swiftSettings: swiftSettings

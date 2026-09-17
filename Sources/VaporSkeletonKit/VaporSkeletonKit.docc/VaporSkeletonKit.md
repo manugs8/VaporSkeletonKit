@@ -12,7 +12,7 @@ montar un servidor MCP para que un agente pueda inspeccionar la app, exponer un
 significa que una corrección hecha en uno nunca llega a los demás.
 
 `VaporSkeletonKit` extrae exactamente esa infraestructura a un paquete SPM, más un
-conjunto de GitHub Actions reutilizables para el pipeline de CI/CD. Un proyecto
+soporte de pruebas (TestSupport) para despliegues locales. Un proyecto
 consumidor la enlaza, implementa `configure(_:)` con su propio dominio, y hereda gratis
 todo lo que este kit resuelve — ver el esquema de conjunto en
 <doc:ArquitecturaGeneral>.
@@ -54,7 +54,6 @@ que enlaza aquí en cada punto donde ambos solapan.
 ### Testing y CI/CD
 
 - <doc:TestingYE2E>
-- <doc:GitHubActionsCompartidas>
 
 ### Guías paso a paso
 

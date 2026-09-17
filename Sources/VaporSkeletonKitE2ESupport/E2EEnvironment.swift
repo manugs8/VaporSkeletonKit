@@ -5,7 +5,7 @@ import Foundation
 ///
 /// Lee `E2E_BASE_URL`, con la dirección local por defecto de `swift run` como valor por
 /// defecto, de modo que los tests E2E funcionen contra un servidor arrancado a mano. En
-/// CI, esto normalmente apunta a un contenedor que ejecuta la imagen Docker de
+/// pruebas locales, esto normalmente apunta a un contenedor local que ejecuta la imagen Docker de
 /// producción.
 public enum E2EEnvironment {
     public static var baseURL: URL {

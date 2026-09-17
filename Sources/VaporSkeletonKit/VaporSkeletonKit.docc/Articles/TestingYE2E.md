@@ -57,8 +57,7 @@ que **ya está corriendo**, en otro proceso (o en otro contenedor por completo).
 
 `E2EEnvironment.baseURL` (de `VaporSkeletonKitE2ESupport`) lee `E2E_BASE_URL`, con la dirección local de `swift run`
 como valor por defecto, para que las mismas pruebas funcionen tanto contra un servidor
-arrancado a mano en local como contra el contenedor que `reusable-e2e.yml` levanta en
-CI.
+arrancado a mano en local como contra un contenedor que levanta dependencias Docker.
 
 `E2EHTTPClient` es un cliente REST mínimo:
 
@@ -111,3 +110,17 @@ arranca una `Application` real, la vincula a un socket TCP real en
 `127.0.0.1:port`, y garantiza su desmontaje al terminar — la única pieza de este
 artículo que no forma parte de la API pública del kit, porque es un detalle interno de
 cómo este mismo repo se testea a sí mismo.
+
+## Inyección de Fallos
+
+Para simular fallos 500, timeouts o comportamientos impredecibles durante tests E2E y de Integración, el Kit incluye un middleware `TestFaultInjectionMiddleware` que permite *armar* temporalmente un error en una ruta concreta. 
+
+El middleware es **completamente inerte en Producción**. Sólo funciona si la aplicación arranca con la variable de entorno `TEST_FAULT_INJECTION_ENABLED=true` y su registro se habilita mediante `registerTestFaultInjection(app)` durante el `configure`. 
+
+Cuando está habilitado, los clientes E2E como `E2EHTTPClient` ganan la habilidad de preparar un fallo para que cualquier proceso (como una app iOS en tests de sistema) reciba un error al consumir un endpoint:
+
+```swift
+let client = E2EHTTPClient()
+// Hacemos que la siguiente llamada nativa a GET /owners sea un 500
+try await client.armFault(method: "GET", path: "/owners", status: 500)
+```

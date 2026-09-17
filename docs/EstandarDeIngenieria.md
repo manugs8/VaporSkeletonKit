@@ -31,7 +31,7 @@ de:
 * WorkOS
 * MCP
 * OpenAPI
-* GitHub Actions
+* Pruebas Locales (TestSupport)
 * Desarrollo asistido por IA
 
 El objetivo no es imponer una aplicación concreta ni un modelo de dominio determinado.
@@ -134,8 +134,7 @@ Clientes → REST API / Servidor MCP → Autenticación WorkOS → Vapor
     (middleware, handlers, services, MCP tools) → Fluent → PostgreSQL / Neon
 ```
 
-Alrededor de la aplicación: GitHub → GitHub Actions → build de Docker → unitarios /
-integración / E2E → Render → producción.
+Alrededor de la aplicación: Desarrollo en local → TestSupport (Pruebas Locales) → build de Docker → Render → producción.
 
 El diagrama completo de piezas, y de qué resuelve cada paquete compartido
 (`VaporSkeletonKit` vs `WorkOSBearerAuth`), está en el artículo
@@ -363,14 +362,12 @@ Crear rama → obtener `DATABASE_URL` → ejecutar migraciones → iniciar aplic
 ejecutar E2E → recopilar diagnósticos → eliminar rama. La limpieza debe ejecutarse
 incluso después de un fallo de los tests.
 
-La mecánica concreta de este ciclo de vida (túnel HTTPS para la Authorization Server
-falsa, limpieza de disco del runner, etc.) está implementada en `reusable-e2e.yml` — ver
-[GitHub Actions compartidas](../Sources/VaporSkeletonKit/VaporSkeletonKit.docc/Articles/GitHubActionsCompartidas.md).
+La mecánica concreta de este ciclo de vida se realiza mediante pruebas E2E locales con utilidades integradas en TestSupport.
 
 ## 9.4 Consideraciones del plan gratuito
 
 La arquitectura debe respetar los límites del plan de Neon seleccionado. Si el proyecto
-utiliza un plan gratuito, debe evitarse acumular ramas abandonadas — el workflow de CI
+utiliza un plan gratuito, debe evitarse acumular ramas abandonadas — las pruebas locales
 debe disponer de una limpieza fiable. Si las ejecuciones E2E concurrentes superan los
 recursos disponibles de Neon, debe limitarse la concurrencia en lugar de compartir
 silenciosamente el estado.
@@ -405,9 +402,7 @@ La aplicación debe recibir la configuración mediante variables de entorno (`DA
 deben incluir secretos en el repositorio.
 
 El `Dockerfile` es responsabilidad de cada proyecto consumidor — este kit no lo genera,
-solo lo lee (`resolve-swift-image` en `reusable-ci.yml`) para saber contra qué imagen
-Swift/OS ejecutar unitarios e integración. Ver
-[GitHub Actions compartidas](../Sources/VaporSkeletonKit/VaporSkeletonKit.docc/Articles/GitHubActionsCompartidas.md).
+se debe usar en el entorno de validación local antes de desplegar.
 
 ---
 
@@ -422,19 +417,10 @@ correcto.
 
 ---
 
-# 12. GitHub Actions
+# 12. Pruebas Locales y TestSupport
 
-El pipeline de CI debe separar responsabilidades: unitarios → integración → E2E →
-construcción de imagen de producción → despliegue → smoke test. El orden exacto puede
-optimizarse para reducir el tiempo de ejecución.
-
-Los checks E2E críticos deberían ser obligatorios antes del merge cuando el plan de
-GitHub del repositorio admita la funcionalidad de protección de ramas/reglas necesaria.
-
-Los tres workflows reutilizables y la composite action que implementan estas etapas
-(`reusable-ci.yml`, `reusable-e2e.yml`, `reusable-deploy-smoke.yml`,
-`protected-paths-check`) están documentados en
-[GitHub Actions compartidas](../Sources/VaporSkeletonKit/VaporSkeletonKit.docc/Articles/GitHubActionsCompartidas.md).
+El pipeline de CI remoto desaparece a favor de validaciones y pruebas de integración y E2E en local.
+Se utiliza el paquete de `TestSupport` para realizar inyecciones de errores ("programar" el servidor para fallar) de modo que se puedan verificar comportamientos complejos en local sin necesidad de pipelines remotos.
 
 ---
 
@@ -445,8 +431,7 @@ Render debe ejecutar el mismo artefacto de aplicación que ha sido validado por 
 
 Si el despliegue falla o falla el smoke test, el proceso de despliegue debe proporcionar
 un procedimiento definido de rollback o recuperación. La configuración exacta de Render
-es específica de cada proyecto; la mecánica del smoke test post-despliegue está en
-`reusable-deploy-smoke.yml` (mismo artículo que §12).
+es específica de cada proyecto; la mecánica del smoke test post-despliegue se ejecuta vía scripts locales.
 
 ---
 
@@ -471,7 +456,7 @@ persistencia.
 
 Los cambios requieren un proceso explícito de modificación protegida. Ejemplos
 habituales: `Tests/E2ETests/**`, `Sources/E2ESupport/**`, `Sources/E2ESeed/**`,
-`docs/contracts/**`, `.github/workflows/e2e.yml`, `.github/workflows/deploy.yml`.
+`docs/contracts/**`, los workflows han sido eliminados en favor de pruebas E2E locales.
 Potencialmente, dependiendo del proyecto: `Dockerfile`, `Package.swift`,
 `Sources/App/configure.swift`.
 
@@ -482,7 +467,7 @@ Potencialmente, dependiendo del proyecto: `Dockerfile`, `Package.swift`,
 El objetivo no es hacer imposible la modificación de archivos protegidos. El objetivo es
 impedir que un agente de IA los modifique sin que el cambio sea detectado.
 
-Cambio normal: agente → rama → PR → CI normal → merge.
+Cambio normal: agente → rama → PR → pruebas locales → merge.
 
 Cambio protegido: agente → rama → PR → se detectan archivos protegidos →
 reconocimiento humano explícito → checks protegidos → merge.
@@ -502,15 +487,13 @@ agente qué rutas están protegidas, que no deben modificarse implícitamente, y
 agente debe detenerse y explicar la situación cuando parezca necesario un cambio
 protegido. Esto es orientación, no seguridad.
 
-**Capa 2 — Detección automática de cambios.** CI debe detectar modificaciones en rutas
+**Capa 2 — Detección automática de cambios.** El entorno de pruebas locales debe detectar modificaciones en rutas
 protegidas, de forma independiente de las propias afirmaciones del agente sobre qué
-archivos ha modificado. Implementado por la composite action `protected-paths-check` —
-ver
-[GitHub Actions compartidas](../Sources/VaporSkeletonKit/VaporSkeletonKit.docc/Articles/GitHubActionsCompartidas.md).
+archivos ha modificado. Implementado por validaciones a nivel local o scripts.
 
-**Capa 3 — Controles del repositorio de GitHub.** Cuando el repositorio/plan lo permita:
+**Capa 3 — Controles del repositorio.** Cuando el repositorio/plan lo permita:
 ramas protegidas, checks de estado obligatorios, rulesets, pull requests obligatorios.
-No se debe asumir que todas las funcionalidades de protección de GitHub están
+No se debe asumir que todas las funcionalidades de protección del repositorio están
 disponibles en todos los planes — la arquitectura base debe seguir siendo utilizable con
 herramientas de nivel gratuito.
 
@@ -525,18 +508,18 @@ debe ser claramente identificable como un cambio protegido.
 
 No se debe confiar exclusivamente en `AGENTS.md`, prompts, comentarios, convenciones, o
 "por favor, no modifiques este archivo". Los controles críticos deben hacerse cumplir
-mediante CI o infraestructura del repositorio siempre que sea posible.
+mediante infraestructura del repositorio siempre que sea posible.
 
 ---
 
 # 18. Estrategia «Free First»
 
-La arquitectura base debe asumir: GitHub Free, Neon Free, Render Free cuando resulte
+La arquitectura base debe asumir: Neon Free, Render Free cuando resulte
 adecuado, configuración de WorkOS apropiada para desarrollo/pruebas, y ausencia de
-mecanismos de protección de CI que requieran funcionalidades de pago.
+mecanismos de protección que requieran funcionalidades de pago.
 
 Las funcionalidades de pago pueden documentarse como mejoras opcionales. La arquitectura
-no debe depender de una funcionalidad cuya disponibilidad varíe según el plan de GitHub.
+no debe depender de una funcionalidad cuya disponibilidad varíe según el plan del proveedor del repo.
 En particular, **Workflow Execution Protections** debe considerarse opcional y no debe
 constituir una dependencia de la arquitectura base.
 
@@ -553,14 +536,14 @@ pull requests. Los pull requests procedentes de forks requieren especial conside
 ya que los secretos pueden estar intencionadamente no disponibles para workflows que
 ejecutan código no confiable.
 
-La arquitectura de CI debe priorizar credenciales de corta duración o con permisos
+La infraestructura local debe priorizar credenciales de corta duración o con permisos
 limitados siempre que la plataforma lo permita.
 
 ---
 
 # 20. Observabilidad y diagnósticos
 
-Un fallo E2E debe poder diagnosticarse. CI debería conservar, cuando resulte práctico:
+Un fallo E2E debe poder diagnosticarse. El entorno local debería conservar, cuando resulte práctico:
 salida de los tests, logs de la aplicación, logs de migraciones, salida del seed,
 diagnósticos de peticiones/respuestas HTTP, logs de los contenedores, información de la
 rama de Neon.
@@ -576,7 +559,7 @@ No todos los detalles de implementación pertenecen a la arquitectura genérica.
 mantenerse específicos de cada proyecto: modelos de dominio, nombres de endpoints,
 esquema exacto de la base de datos, registros exactos del seed, nombres de los servicios
 de Render, IDs de proyectos de Neon, identificadores de tenant/configuración de WorkOS,
-nombres exactos de los secrets de GitHub, tags exactos de las imágenes Docker, reglas de
+nombres exactos de los tags exactos de las imágenes Docker, reglas de
 autorización específicas del negocio.
 
 El estándar genérico debe definir el patrón, no los datos del proyecto.
@@ -603,11 +586,7 @@ Tests/
 docs/
   contracts/
     ...
-.github/
-  workflows/
-    ci.yml
-    e2e.yml
-    deploy.yml
+
   AGENTS.md
 Dockerfile
 Package.swift
@@ -631,10 +610,10 @@ negocio REST/MCP.
 regresión de referencia.
 
 **Infraestructura:** proyecto Neon · rama base E2E · ciclo de vida de ramas efímeras ·
-imagen Docker de producción · servicio Render · GitHub Actions · limpieza en caso de
+imagen Docker de producción · servicio Render · pruebas locales · limpieza en caso de
 fallo.
 
-**Gobernanza de IA:** `AGENTS.md` · zonas protegidas definidas · check CI de archivos
+**Gobernanza de IA:** `AGENTS.md` · zonas protegidas definidas · check de archivos local
 protegidos · evaluada la protección de ramas/rulesets · workflows E2E protegidos ·
 archivos de contrato protegidos · definido un proceso deliberado de modificación
 protegida.
@@ -646,9 +625,9 @@ protegida.
 Este documento sigue siendo, en parte, un borrador. Estado de cada cuestión original:
 
 1. Implementación exacta de las Zonas Protegidas utilizando únicamente funcionalidades
-   gratuitas de GitHub. **Parcialmente resuelto** — la Capa 2 (detección, no bloqueo) la
+   gratuitas del proveedor de repositorio. **Parcialmente resuelto** — la Capa 2 (detección, no bloqueo) la
    cubre `protected-paths-check` con funcionalidades 100% gratuitas (§16); la Capa 3
-   (bloqueo real) sigue dependiendo del plan/tipo de cuenta de GitHub, sin alternativa
+   (bloqueo real) sigue dependiendo del plan/tipo de cuenta del proveedor de repositorio, sin alternativa
    gratuita conocida para todos los casos.
 
 2. Cómo autoriza explícitamente una persona una modificación protegida. **Abierto** —
@@ -660,18 +639,15 @@ Este documento sigue siendo, en parte, un borrador. Estado de cada cuestión ori
 
 4. Cómo distinguir un cambio creado por un agente de un cambio creado por una persona
    cuando ambos utilizan la misma identidad de Git. **Abierto** — candidato sin validar
-   todavía: identidades de Git/GitHub separadas para agente y persona (token de vida
+   todavía: identidades de Git separadas para agente y persona (token de vida
    corta para el agente, sin permisos de admin/merge/bypass).
 
-5. Cómo proteger los workflows de GitHub Actions frente a modificaciones que los
-   debiliten realizadas por el agente. **Parcialmente resuelto** — `.github/workflows/**`
-   y `.github/actions/**` son, en sí mismos, rutas protegibles por el mismo mecanismo de
+5. Cómo proteger los entornos frente a modificaciones que los
    §14.3/§16; sigue sin existir una protección técnica que impida a un agente con acceso
    de escritura debilitar esas rutas antes de que la Capa 2 las señale.
 
 6. Límites exactos de concurrencia y ciclo de vida de ramas en Neon Free. **Abierto** —
-   `reusable-e2e.yml` cancela ejecuciones superpuestas (§9.4) como mitigación práctica,
-   pero no hay una cifra documentada de cuántas ramas efímeras concurrentes soporta el
+   se deben evitar ejecuciones superpuestas de tests locales para evitar errores de red y memoria, ya que no hay una cifra documentada de cuántas ramas efímeras concurrentes soporta el
    plan gratuito antes de degradar.
 
 7. Estrategia automatizada para tokens de prueba de WorkOS. **Resuelto** — ver §4.2,
@@ -701,7 +677,7 @@ La arquitectura general debe hacer que el camino seguro sea también el camino f
 
 ```
 El agente escribe código de aplicación → tests deterministas → base de datos real
-y efímera → artefacto Docker de producción → CI protegido → despliegue → smoke test
+y efímera → artefacto Docker de producción → validación local → despliegue → smoke test
 ```
 
 Al mismo tiempo:

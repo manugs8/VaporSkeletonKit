@@ -56,10 +56,9 @@ struct HealthRouteTests {
 /// base de datos configurada, ya que el stub solo ignora su *resultado*, no si
 /// `req.db` llega a resolverse).
 ///
-/// Mismos nombres de variable `DATABASE_*` que usa el propio servicio Postgres de CI de
+/// Mismos nombres de variable `DATABASE_*` que se usan localmente y en dependencias Docker
 /// cualquier proyecto consumidor (§5.2), así que esta suite se ejecuta sin
-/// modificaciones ahora que este repo tiene su propio workflow de CI
-/// (`.github/workflows/ci.yml`). Sin ninguna variable de entorno establecida, usa por
+/// modificaciones en local. Sin ninguna variable de entorno establecida, usa por
 /// defecto un Postgres local sencillo en `localhost` con TLS desactivado — la
 /// configuración habitual de desarrollo local — en lugar de exigir TLS, a diferencia
 /// del valor por defecto del propio `configure.swift`; sobreescribe con

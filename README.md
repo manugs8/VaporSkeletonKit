@@ -5,7 +5,7 @@ PostgreSQL desplegados en Render contra Neon. Un proyecto depende de este paquet
 SPM, y referencia los workflows de CI/CD de este repo por path, en lugar de mantener
 copias propias de ficheros `.swift`/`.yml` que acaban divergiendo de las correcciones
 hechas aquí. Un proyecto consumidor enlaza los targets Swift de abajo y monta su propio
-wrapper delgado para las [GitHub Actions compartidas](#github-actions-compartidas) —
+wrapper delgado para ejecución —
 todo lo demás queda libre para que se centre en su propia lógica de negocio.
 
 Paquete complementario: [`WorkOSBearerAuth`](https://github.com/manugs8/WorkOSBearerAuth)
@@ -25,7 +25,6 @@ explican no solo el qué, sino el porqué de cada pieza.
 - [Montaje del servidor MCP](#montaje-del-servidor-mcp)
 - [Utilidades de testing](#utilidades-de-testing)
 - [Soporte E2E](#soporte-e2e)
-- [GitHub Actions compartidas](#github-actions-compartidas)
 - [Documentación DocC](#documentación-docc)
 - [Estándar de ingeniería](#estándar-de-ingeniería)
 - [Ejecutar los tests de este repo](#ejecutar-los-tests-de-este-repo)
@@ -231,82 +230,6 @@ let client = try await E2EMCPClient.connect(authToken: { try await myTokenSigner
 let (content, isError) = try await client.callTool(name: "list_items")
 ```
 
-## GitHub Actions compartidas
-
-Además del paquete Swift, este repo aloja las copias canónicas de un pipeline de CI/CD
-completo: tres workflows reutilizables y una composite action, referenciados por
-path desde el propio `.github/workflows/` de un proyecto consumidor en lugar de
-copiados dentro de él — una corrección hecha aquí llega a cada consumidor sin tener que
-editar a mano el fichero de workflow de cada proyecto, de la misma forma en que subir de
-versión este paquete SPM lo hace.
-
-El propio `ci.yml`, delgado, de un proyecto consumidor conecta triggers/permisos y llama
-a los workflows:
-
-```yaml
-on:
-  pull_request:
-    branches: [main]
-  push:
-    branches: [main]
-
-jobs:
-  ci:
-    uses: manugs8/VaporSkeletonKit/.github/workflows/reusable-ci.yml@main
-
-  protected-paths-check:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-    steps:
-      - uses: manugs8/VaporSkeletonKit/.github/actions/protected-paths-check@main
-```
-
-Fija a un tag (p. ej. `@v0.5.0` en lugar de `@main`) en cuanto un consumidor quiera que
-una corrección hecha aquí requiera un opt-in explícito en lugar de aplicarse en su
-siguiente ejecución de CI.
-
-### `reusable-ci.yml`
-
-El pipeline de build/test/lint. `unit-tests` e `integration-tests` corren cada uno sobre
-la imagen Swift/OS exacta que indica el stage `build` del `Dockerfile` del consumidor
-(leída directamente de la línea `FROM <image> AS build`, de modo que nunca puede
-divergir silenciosamente de lo que realmente se despliega); `integration-tests` además
-recibe un contenedor de servicio `postgres:16`. `docker-build` construye la imagen de
-producción del consumidor (sin publicarla) para que un `Dockerfile` roto falle en CI en
-lugar de aparecer solo al desplegar. `lint-openapi` valida `Sources/App/openapi.yaml`
-con Redocly. Requiere que el consumidor tenga ambos ficheros en esas rutas.
-
-### `reusable-deploy-smoke.yml`
-
-Consulta un `/health` desplegado con backoff después de que la propia integración de
-Render con GitHub redespliegue al hacer push a `main` — este workflow no dispara el
-despliegue en sí, solo lo verifica. Recibe `render-service-url` (input, obligatorio).
-
-### `reusable-e2e.yml`
-
-Ejecuta la suite E2E real del consumidor contra su imagen Docker de producción exacta,
-sobre una rama Neon efímera creada a partir de `e2e-base` y siempre destruida después —
-nunca contra una `Application` en proceso. Recibe `neon-project-id` (input, obligatorio)
-más `neon-api-key` y `e2e-auth-test-private-key` (secrets, obligatorios); los inputs
-opcionales `resource-indicator`, `seed-command` y `db-failure-container` cubren un
-resource indicator OAuth fijo, un paso de seed de datos de referencia y un segundo
-contenedor de caída de base de datos. Consulta los propios comentarios del workflow para
-la mecánica completa (la rama Neon efímera, un túnel rápido de Cloudflare que hace de
-issuer de WorkOS AuthKit, limpieza de disco en el runner, etc.) — nada de eso es
-específico de un consumidor en concreto.
-
-### `protected-paths-check` (composite action)
-
-Marca una PR que toca alguna ruta listada en el propio
-`.github/protected-paths.txt` del consumidor (pathspec `:(glob)` de git, una por línea)
-— resumen del job + una etiqueta `protected-change`, sin bloquear el merge por sí sola.
-Un consumidor le da dientes de verdad con branch protection que exija revisión de
-CODEOWNERS. Recibe un input opcional `paths-file`, con `.github/protected-paths.txt`
-como valor por defecto.
-
 ## Documentación DocC
 
 Además de este README, el target `VaporSkeletonKit` incluye un catálogo DocC
@@ -355,5 +278,5 @@ docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres:16
 swift test
 ```
 
-`.github/workflows/ci.yml` ejecuta la misma suite contra un contenedor de servicio
+Las validaciones locales ejecutan la misma suite contra un contenedor de servicio
 `postgres:16` en cada push/PR a `main`.

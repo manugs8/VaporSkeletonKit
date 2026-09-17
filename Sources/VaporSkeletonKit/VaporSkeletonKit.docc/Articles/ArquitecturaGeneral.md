@@ -1,7 +1,6 @@
 # Arquitectura general
 
-Dónde encaja `VaporSkeletonKit` entre tu proyecto, `WorkOSBearerAuth` y las GitHub
-Actions compartidas.
+Dónde encaja `VaporSkeletonKit` entre tu proyecto, `WorkOSBearerAuth` y el soporte para pruebas locales.
 
 ## Descripción general
 
@@ -9,12 +8,11 @@ Actions compartidas.
 en un backend Vapor debería vivir en un único sitio, versionado, con sus propios tests,
 en lugar de copiado y pegado en cada proyecto nuevo.
 
-![Arquitectura general: el proyecto consumidor en la parte superior, con WorkOSBearerAuth, VaporSkeletonKit y las GitHub Actions compartidas debajo, y los tres productos SPM de VaporSkeletonKit en la base.](arquitectura-general)
+![Arquitectura general: el proyecto consumidor en la parte superior, con WorkOSBearerAuth, VaporSkeletonKit y el TestSupport debajo, y los tres productos SPM de VaporSkeletonKit en la base.](arquitectura-general)
 
 Un proyecto consumidor solo escribe tres cosas: su `configure(_:)`, sus modelos/rutas de
-dominio, y el wrapper delgado que conecta las GitHub Actions compartidas (ver
-<doc:GitHubActionsCompartidas>). Todo lo demás — arrancar la app, hablar con Postgres,
-servir `/docs`, montar MCP, comprobar salud, y el propio pipeline de CI/CD — vive aquí.
+dominio, y el wrapper delgado que conecta el paquete de TestSupport. Todo lo demás — arrancar la app, hablar con Postgres,
+servir `/docs`, montar MCP, comprobar salud, y el soporte para pruebas locales — vive aquí.
 
 ## Tres productos SPM, sin dependencias entre sí
 
@@ -86,9 +84,8 @@ Deliberadamente, `VaporSkeletonKit` no incluye:
 - **Generación de tipos desde el spec OpenAPI.** El kit sirve el fichero YAML crudo
   (<doc:DocumentacionOpenAPI>), pero no genera código — eso lo hace
   `swift-openapi-generator` sobre el propio spec del proyecto.
-- **Un `Dockerfile`.** Cada proyecto consumidor mantiene el suyo; `reusable-ci.yml` lo
-  *lee* para saber contra qué imagen de Swift ejecutar los tests, pero no lo genera (ver
-  <doc:GitHubActionsCompartidas>).
+- **Un `Dockerfile`.** Cada proyecto consumidor mantiene el suyo. Las pruebas se ejecutan
+  de manera local, sin requerir pipelines de CI acoplados.
 
 Si una pieza nueva es realmente genérica y libre de lógica de negocio, tiene sentido
 aquí. Si depende del dominio de un proyecto concreto, no.

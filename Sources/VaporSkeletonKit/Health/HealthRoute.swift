@@ -4,8 +4,8 @@ import Vapor
 ///
 /// Escrita a mano deliberadamente en lugar de generada a partir de un spec OpenAPI, a
 /// diferencia del resto de la superficie de API de un proyecto consumidor: `/health` es
-/// un endpoint de operaciones (consultado por Render, por `reusable-deploy-smoke.yml` y
-/// por las suites E2E que verifican el comportamiento ante una caída de la base de
+/// un endpoint de operaciones (consultado por Render y
+/// por las suites locales E2E que verifican el comportamiento ante una caída de la base de
 /// datos), no forma parte de la API de negocio contra la que integra un cliente, y que
 /// todos los consumidores compartan exactamente la misma ruta/respuesta garantiza que
 /// nunca puedan divergir como sí podrían hacerlo tipos generados por proyecto. No

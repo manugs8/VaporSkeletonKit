@@ -19,8 +19,8 @@ base de datos configurada para confirmar que la conexión está viva, y devuelve
 ``HealthStatus`` describiendo el resultado. Ese mismo `HealthStatus` se expone de dos
 formas distintas, ambas leyendo `app.healthChecker`:
 
-- `GET /health` (``registerHealthRoute(_:)``), para que Render, `reusable-deploy-smoke.yml`
-  y las suites E2E puedan consultarlo por HTTP normal.
+- `GET /health` (``registerHealthRoute(_:)``), para que Render
+  y las suites E2E y pruebas locales puedan consultarlo por HTTP normal.
 - ``GetHealthTool``, la herramienta MCP `get_health`, para que un agente conectado al
   servidor MCP pueda hacer la misma comprobación sin necesitar una segunda ruta.
 
@@ -59,8 +59,8 @@ base de datos concreta.
 
 El resto de la superficie de API de un proyecto consumidor normalmente se genera desde
 un spec OpenAPI (ver <doc:DocumentacionOpenAPI>). `/health` es la excepción deliberada:
-es un endpoint de operaciones — lo consultan Render, `reusable-deploy-smoke.yml` y las
-suites E2E que verifican el comportamiento ante una caída de base de datos —, no forma
+es un endpoint de operaciones — lo consultan Render y las
+suites locales E2E que verifican el comportamiento ante una caída de base de datos —, no forma
 parte de la API de negocio contra la que integra un cliente externo.
 
 Que todos los consumidores compartan exactamente la misma ruta y la misma forma de

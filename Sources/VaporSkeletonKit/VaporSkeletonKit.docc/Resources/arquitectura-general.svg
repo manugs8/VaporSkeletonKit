@@ -24,9 +24,9 @@
   <text x="450" y="200" text-anchor="middle" font-size="13" fill="#3a3a3a">Infraestructura genérica</text>
   <text x="450" y="217" text-anchor="middle" font-size="13" fill="#3a3a3a">sin lógica de negocio</text>
 
-  <!-- GitHub Actions -->
+  <!-- TestSupport Locales -->
   <rect x="620" y="150" width="220" height="80" rx="10" fill="#fff6e8" stroke="#c98a1a" stroke-width="2"/>
-  <text x="730" y="180" text-anchor="middle" font-size="16" font-weight="600" fill="#1a1a1a">GitHub Actions</text>
+  <text x="730" y="180" text-anchor="middle" font-size="16" font-weight="600" fill="#1a1a1a">TestSupport Locales</text>
   <text x="730" y="200" text-anchor="middle" font-size="13" fill="#3a3a3a">compartidas (CI/CD)</text>
   <text x="730" y="217" text-anchor="middle" font-size="13" fill="#3a3a3a">referenciadas por path</text>
 

@@ -2,7 +2,7 @@ import Foundation
 #if canImport(FoundationNetworking)
 // URLSession/URLRequest/HTTPURLResponse viven en un módulo separado en Linux (en
 // plataformas Apple siguen siendo parte de Foundation) — necesario explícitamente para
-// suites E2E que ejecutan su imagen Docker de producción en un runner de CI Linux.
+// suites E2E que ejecutan su imagen Docker de producción en un entorno Linux local.
 import FoundationNetworking
 #endif
 
@@ -193,4 +193,21 @@ extension JSONDecoder {
         decoder.dateDecodingStrategy = .iso8601
         return decoder
     }()
+}
+
+extension E2EHTTPClient {
+    /// Arma un fallo (inyectado) para que la siguiente solicitud a este endpoint falle con el estado provisto.
+    /// Esto invocará al endpoint implícito `/_test/fault` usado en `TestFaultInjectionMiddleware` (VaporSkeletonKit).
+    public func armFault(method: String, path: String, status: Int, delayMilliseconds: Int? = nil, authorization: Authorization = .default) async throws {
+        struct ArmRequest: Encodable {
+            let method: String
+            let path: String
+            let status: Int
+            let delayMilliseconds: Int?
+        }
+        let response = try await post("/_test/fault", encoding: ArmRequest(method: method, path: path, status: status, delayMilliseconds: delayMilliseconds), authorization: authorization)
+        guard response.status == 200 else {
+            throw E2EHTTPError.unexpectedStatus(response.status, body: String(decoding: response.body, as: UTF8.self))
+        }
+    }
 }
