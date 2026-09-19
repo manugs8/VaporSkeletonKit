@@ -1,5 +1,7 @@
 import MCP
 import Vapor
+import Fluent
+import VaporSkeletonKit
 
 /// Comprueba la salud de la aplicación y de la conexión a la base de datos.
 ///

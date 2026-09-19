@@ -11,30 +11,18 @@ let package = Package(
     ],
     products: [
         .library(name: "VaporSkeletonKit", targets: ["VaporSkeletonKit"]),
-        // Separado del propio `VaporSkeletonKit`, el mismo split que usa WorkOSBearerAuth
-        // para su propio `WorkOSBearerAuthTesting`: el target de tests de un proyecto
-        // consumidor enlaza esto para obtener las mismas utilidades `withTestApp`/
-        // `sendMCP` que usan los tests de este repo, en lugar de copiarlas y pegarlas.
         .library(name: "VaporSkeletonKitTesting", targets: ["VaporSkeletonKitTesting"]),
-        // Deliberadamente ligero en dependencias (sin Vapor/Fluent), mismo razonamiento
-        // que `VaporSkeletonKitTesting`/`WorkOSBearerAuthTesting`: las suites E2E hablan
-        // HTTP/MCP real con un servidor ya en ejecución (normalmente la imagen Docker de
-        // producción), nunca con una `Application` en proceso, así que no tienen motivo
-        // para enlazar la pila del lado del servidor. Seguro de compartir también con un
-        // target de seed determinista.
         .library(name: "VaporSkeletonKitE2ESupport", targets: ["VaporSkeletonKitE2ESupport"]),
+        .library(name: "VaporSkeletonKitMCP", targets: ["VaporSkeletonKitMCP"]),
+        .library(name: "VaporSkeletonKitMCPTesting", targets: ["VaporSkeletonKitMCPTesting"]),
+        .library(name: "VaporSkeletonKitMCPE2ESupport", targets: ["VaporSkeletonKitMCPE2ESupport"]),
     ],
     dependencies: [
         .package(url: "https://github.com/vapor/vapor.git", from: "4.115.0"),
         .package(url: "https://github.com/vapor/fluent.git", from: "4.12.0"),
         .package(url: "https://github.com/vapor/fluent-postgres-driver.git", from: "2.9.0"),
         .package(url: "https://github.com/modelcontextprotocol/swift-sdk.git", from: "0.12.1"),
-        // Solo se usa como plugin de comando (`generate-documentation`/
-        // `preview-documentation`) para el catálogo DocC en
-        // Sources/VaporSkeletonKit/VaporSkeletonKit.docc — no se enlaza en ningún
-        // producto, así que no añade peso en tiempo de ejecución a ningún consumidor.
         .package(url: "https://github.com/swiftlang/swift-docc-plugin.git", from: "1.5.0"),
-        .package(path: "../AuthMock"),
     ],
     targets: [
         .target(
@@ -43,7 +31,6 @@ let package = Package(
                 .product(name: "Vapor", package: "vapor"),
                 .product(name: "Fluent", package: "fluent"),
                 .product(name: "FluentPostgresDriver", package: "fluent-postgres-driver"),
-                .product(name: "MCP", package: "swift-sdk"),
             ],
             swiftSettings: swiftSettings
         ),
@@ -52,7 +39,6 @@ let package = Package(
             dependencies: [
                 .target(name: "VaporSkeletonKit"),
                 .product(name: "VaporTesting", package: "vapor"),
-                .product(name: "AuthMockServer", package: "AuthMock"),
             ],
             swiftSettings: swiftSettings
         ),
@@ -62,8 +48,6 @@ let package = Package(
                 .product(name: "Vapor", package: "vapor"),
                 .product(name: "Fluent", package: "fluent"),
                 .product(name: "VaporTesting", package: "vapor"),
-                .product(name: "AuthMockServer", package: "AuthMock"),
-                .product(name: "MCP", package: "swift-sdk"),
             ],
             swiftSettings: swiftSettings
         ),
@@ -78,7 +62,6 @@ let package = Package(
         .target(
             name: "VaporSkeletonKitE2ESupport",
             dependencies: [
-                .product(name: "MCP", package: "swift-sdk")
             ],
             swiftSettings: swiftSettings
         ),
@@ -87,6 +70,60 @@ let package = Package(
             dependencies: [
                 .target(name: "VaporSkeletonKitE2ESupport"),
                 .target(name: "VaporSkeletonKit"),
+                .product(name: "Vapor", package: "vapor"),
+            ],
+            swiftSettings: swiftSettings
+        ),
+        .target(
+            name: "VaporSkeletonKitMCP",
+            dependencies: [
+                .target(name: "VaporSkeletonKit"),
+                .product(name: "MCP", package: "swift-sdk"),
+                .product(name: "Vapor", package: "vapor"),
+            ],
+            swiftSettings: swiftSettings
+        ),
+        .testTarget(
+            name: "VaporSkeletonKitMCPTests",
+            dependencies: [
+                .target(name: "VaporSkeletonKitMCP"),
+                .target(name: "VaporSkeletonKitTesting"),
+                .target(name: "VaporSkeletonKit"),
+                .product(name: "VaporTesting", package: "vapor"),
+            ],
+            swiftSettings: swiftSettings
+        ),
+        .target(
+            name: "VaporSkeletonKitMCPTesting",
+            dependencies: [
+                .target(name: "VaporSkeletonKitTesting"),
+                .target(name: "VaporSkeletonKitMCP"),
+                .product(name: "MCP", package: "swift-sdk"),
+                .product(name: "VaporTesting", package: "vapor"),
+            ],
+            swiftSettings: swiftSettings
+        ),
+        .testTarget(
+            name: "VaporSkeletonKitMCPTestingTests",
+            dependencies: [
+                .target(name: "VaporSkeletonKitMCPTesting"),
+                .target(name: "VaporSkeletonKitMCP"),
+            ],
+            swiftSettings: swiftSettings
+        ),
+        .target(
+            name: "VaporSkeletonKitMCPE2ESupport",
+            dependencies: [
+                .target(name: "VaporSkeletonKitE2ESupport"),
+                .product(name: "MCP", package: "swift-sdk"),
+            ],
+            swiftSettings: swiftSettings
+        ),
+        .testTarget(
+            name: "VaporSkeletonKitMCPE2ESupportTests",
+            dependencies: [
+                .target(name: "VaporSkeletonKitMCPE2ESupport"),
+                .target(name: "VaporSkeletonKitE2ESupport"),
                 .product(name: "Vapor", package: "vapor"),
             ],
             swiftSettings: swiftSettings

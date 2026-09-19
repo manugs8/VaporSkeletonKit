@@ -2,6 +2,7 @@ import MCP
 import Testing
 import Vapor
 import VaporSkeletonKitTesting
+import VaporSkeletonKitMCPTesting
 
 @testable import App
 

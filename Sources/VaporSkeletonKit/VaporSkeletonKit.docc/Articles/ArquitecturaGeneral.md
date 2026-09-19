@@ -21,14 +21,17 @@ peso de dependencias distinto:
 
 | Producto | Se enlaza en | Depende de |
 |---|---|---|
-| `VaporSkeletonKit` | El target de la app, en producción | Vapor, Fluent, FluentPostgresDriver, MCP |
-| `VaporSkeletonKitTesting` | El target de tests de integración | Vapor, Fluent, VaporTesting, MCP |
-| `VaporSkeletonKitE2ESupport` | Targets de tests E2E / seed | Solo MCP (nada de Vapor/Fluent) |
+| `VaporSkeletonKit` | El target de la app, en producción | Vapor, Fluent, FluentPostgresDriver |
+| `VaporSkeletonKitTesting` | El target de tests de integración | Vapor, Fluent, VaporTesting |
+| `VaporSkeletonKitE2ESupport` | Targets de tests E2E / seed | Ninguna framework de servidor |
+| `VaporSkeletonKitMCP` | El target de la app, si exportas MCP | VaporSkeletonKit, Vapor, swift-sdk (MCP) |
+| `VaporSkeletonKitMCPTesting` | Tests de integración de MCP | VaporSkeletonKitTesting, MCP |
+| `VaporSkeletonKitMCPE2ESupport`| Tests E2E de MCP | VaporSkeletonKitE2ESupport, MCP |
 
-Que sean tres productos y no uno solo importa: `VaporSkeletonKitTesting` nunca se enlaza
+Que sean múltiples productos y no uno solo importa: `VaporSkeletonKitTesting` nunca se enlaza
 en producción (evita que herramientas de test lleguen a un binario que se despliega), y
 `VaporSkeletonKitE2ESupport` deliberadamente no depende de Vapor — una suite E2E habla
-HTTP/MCP real contra un servidor que ya está corriendo (en un proceso en local o CI), así que no tiene ningún motivo para enlazar la pila
+HTTP real contra un servidor que ya está corriendo (en un proceso en local o CI), así que no tiene ningún motivo para enlazar la pila
 completa del servidor. El mismo split que usa `WorkOSBearerAuth` para su propio
 `WorkOSBearerAuthTesting`.
 

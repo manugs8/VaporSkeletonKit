@@ -3,6 +3,7 @@ import Testing
 import Vapor
 import VaporTesting
 @testable import VaporSkeletonKit
+@testable import VaporSkeletonKitMCP
 
 private struct EchoTool: MCPTool {
     var name: String { "echo" }

@@ -1,7 +1,7 @@
 # Testing y E2E
 
 Los tres niveles de testing que sigue todo proyecto construido con este kit, y qué
-utilidades aporta `VaporSkeletonKitTesting`/`VaporSkeletonKitE2ESupport` en cada uno.
+utilidades aporta `VaporSkeletonKitTesting` (o `VaporSkeletonKitMCPTesting`)/`VaporSkeletonKitE2ESupport` en cada uno.
 
 ## Tres niveles, cada uno probando lo que el anterior no puede
 
@@ -11,8 +11,8 @@ utilidades aporta `VaporSkeletonKitTesting`/`VaporSkeletonKitE2ESupport` en cada
   exclusiva del proyecto consumidor; este kit no aporta nada aquí porque no hay lógica
   de dominio que probar.
 - **Integración** — la app completa, montada en proceso, contra un Postgres real.
-  Aportado por `VaporSkeletonKitTesting`.
-- **E2E** — HTTP/MCP real contra un servidor ya en ejecución. Aportado por `VaporSkeletonKitE2ESupport`.
+  Aportado por `VaporSkeletonKitTesting` (o `VaporSkeletonKitMCPTesting`).
+- **E2E** — HTTP real contra un servidor ya en ejecución. Aportado por `VaporSkeletonKitE2ESupport` (o `VaporSkeletonKitMCPE2ESupport`).
 
 Cada nivel existe porque el anterior no puede detectar cierta clase de fallo: un test
 unitario no puede detectar que una migración de Fluent falla contra Postgres real; un
@@ -21,7 +21,7 @@ real.
 
 ## Integración: `withTestApp` + Postgres real
 
-`withTestApp(environment:configure:test:)` (de `VaporSkeletonKitTesting`) arranca una `Application` de test real,
+`withTestApp(environment:configure:test:)` (de `VaporSkeletonKitTesting` (o `VaporSkeletonKitMCPTesting`)) arranca una `Application` de test real,
 ejecuta el `configure(_:)` del propio proyecto, migra, ejecuta el test, y **siempre**
 revierte las migraciones y apaga la app — incluso si `configure` o el test lanzan un
 error:
@@ -53,7 +53,7 @@ let tools = try response.result.get().tools
 Fluent —, porque una suite E2E no necesita la pila del servidor: habla con un servidor
 que **ya está corriendo**, en otro proceso (o en otro contenedor por completo).
 
-`E2EEnvironment.baseURL` (de `VaporSkeletonKitE2ESupport`) lee `E2E_BASE_URL`, con la dirección local de `swift run`
+`E2EEnvironment.baseURL` (de `VaporSkeletonKitE2ESupport` (o `VaporSkeletonKitMCPE2ESupport`)) lee `E2E_BASE_URL`, con la dirección local de `swift run`
 como valor por defecto, para que las mismas pruebas funcionen tanto contra un servidor
 arrancado a mano en local o los equivalentes en CI.
 

@@ -1,5 +1,6 @@
 import Foundation
 import MCP
+import VaporSkeletonKitE2ESupport
 
 /// Construye un `MCP.Client` real conectado sobre `HTTPClientTransport` — un cliente
 /// MCP genuino que habla HTTP/JSON-RPC real con un servidor en ejecución, de la misma

@@ -3,7 +3,7 @@
         Partiendo del servidor del tutorial anterior, vas a montar un servidor MCP con
         ``mountMCPServer(_:name:version:instructions:tools:resources:path:)``,
         implementar tu primera ``MCPTool`` propia, manejar sus errores con
-        ``MCPToolError``, y probarla con `sendMCP` de `VaporSkeletonKitTesting`.
+        ``MCPToolError``, y probarla con `sendMCP` de `VaporSkeletonKitMCPTesting`.
 
         @Image(source: "flujo-peticion-mcp", alt: "Ciclo de vida de una petición tools/call, desde el cliente MCP hasta la herramienta y de vuelta.")
     }

@@ -2,6 +2,7 @@ import Fluent
 import FluentPostgresDriver
 import Vapor
 import VaporSkeletonKit
+import VaporSkeletonKitMCP
 
 func configure(_ app: Application) throws {
     app.databases.use(
