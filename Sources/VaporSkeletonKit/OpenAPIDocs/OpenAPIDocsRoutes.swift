@@ -9,25 +9,23 @@ import Vapor
 ///
 /// - Parameters:
 ///   - app: La `Application` sobre la que registrar las rutas.
-///   - specFilePath: Ruta al fichero YAML de OpenAPI, relativa al directorio de trabajo
-///     de la aplicación (p. ej. `"Sources/App/openapi.yaml"`).
+///   - specData: Los datos del fichero YAML de OpenAPI (ej. obtenidos de un paquete
+///     externo que lo expone como `Data`).
 ///   - docsTitle: El `<title>` de la página Swagger UI, p. ej. `"<Proyecto> API Docs"`.
-public func registerOpenAPIDocs(_ app: Application, specFilePath: String, docsTitle: String) {
-    app.get("openapi.yaml") { req in
-        try await openAPISpecHandler(req, specFilePath: specFilePath)
+public func registerOpenAPIDocs(_ app: Application, specData: Data, docsTitle: String) {
+    app.get("openapi.yaml") { _ in
+        openAPISpecHandler(specData: specData)
     }
     app.get("docs") { _ in
         swaggerUIHandler(docsTitle: docsTitle)
     }
 }
 
-@Sendable
-private func openAPISpecHandler(_ req: Request, specFilePath: String) async throws -> Response {
-    let path = req.application.directory.workingDirectory + specFilePath
-    guard FileManager.default.fileExists(atPath: path) else {
-        throw Abort(.notFound)
-    }
-    return try await req.fileio.asyncStreamFile(at: path, mediaType: .init(type: "application", subType: "yaml"))
+private func openAPISpecHandler(specData: Data) -> Response {
+    var headers = HTTPHeaders()
+    headers.contentType = .init(type: "application", subType: "yaml")
+    let body = Response.Body(buffer: ByteBuffer(data: specData))
+    return Response(status: .ok, headers: headers, body: body)
 }
 
 private func swaggerUIHandler(docsTitle: String) -> Response {

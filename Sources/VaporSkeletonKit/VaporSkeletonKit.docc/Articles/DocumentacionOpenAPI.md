@@ -1,30 +1,29 @@
 # Documentación OpenAPI
 
-Qué hace ``registerOpenAPIDocs(_:specFilePath:docsTitle:)`` — y qué es responsabilidad
+Qué hace ``registerOpenAPIDocs(_:specData:docsTitle:)`` — y qué es responsabilidad
 del proyecto consumidor, no de este kit.
 
 ## Dos rutas, un único spec como fuente de verdad
 
-`registerOpenAPIDocs(_:specFilePath:docsTitle:)` registra dos rutas a partir de un único
-fichero YAML que ya existe en el proyecto consumidor:
+`registerOpenAPIDocs(_:specData:docsTitle:)` registra dos rutas a partir de los datos pasados:
 
-- `GET /openapi.yaml` — sirve el fichero en crudo, tal cual está en disco. Útil para
+- `GET /openapi.yaml` — sirve los datos (usualmente el fichero OpenAPI en crudo) como `application/yaml`. Útil para
   importar el spec en Postman o cualquier otra herramienta compatible con OpenAPI.
 - `GET /docs` — una página [Swagger UI](https://swagger.io/tools/swagger-ui/)
   autocontenida, cargada desde un CDN público, que apunta a `/openapi.yaml`. Permite
   explorar la API desde un navegador sin instalar nada.
 
 ```swift
-registerOpenAPIDocs(app, specFilePath: "Sources/App/openapi.yaml", docsTitle: "MyProject API Docs")
+// Ejemplo usando openapi.yaml inyectado como Data desde un paquete externo
+registerOpenAPIDocs(app, specData: openapiData, docsTitle: "MyProject API Docs")
 ```
 
-## Por qué la ruta es relativa al directorio de trabajo
+## Por qué exponemos el spec como Data
 
-`specFilePath` se resuelve como `app.directory.workingDirectory + specFilePath`, no
-como una ruta absoluta ni como un recurso embebido en el binario. Esto es intencional:
-la misma llamada, con la misma ruta relativa, funciona tanto en desarrollo local
-(`swift run` desde la raíz del repo) como en cualquier otro entorno, asumiendo que el archivo está ahí. Si el fichero no existe en esa ruta, la petición a
-`/openapi.yaml` responde `404` en lugar de fallar de forma más oscura.
+El spec se suele encapsular en paquetes externos al proyecto (o bundles de recursos) y se expone como `Data`.
+De esta forma, en vez de depender de rutas de disco duro o directorios de trabajo (que pueden fallar si no 
+están configurados correctamente en Docker o en producción), el proyecto consumidor debe pasar explícitamente 
+los datos del documento OpenAPI a esta función.
 
 ## Lo que este kit no hace: generar código
 
@@ -35,6 +34,3 @@ frontera es la misma que la del resto del kit: el contenido del spec OpenAPI es 
 de negocio del proyecto — depende enteramente de su dominio —, así que no tiene cabida
 aquí. Lo único genérico es *cómo se sirve* ese spec una vez escrito, y eso es lo que
 `registerOpenAPIDocs` resuelve.
-
-Las pruebas locales pueden validar el spec invocando Redocly contra `Sources/App/openapi.yaml` — pero
-validar el YAML no es lo mismo que generarlo ni servirlo.

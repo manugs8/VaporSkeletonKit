@@ -99,19 +99,19 @@ los que se accede sin pinning.
 
 ## Servir OpenAPI / Swagger UI
 
-`registerOpenAPIDocs(_:specFilePath:docsTitle:)` registra `GET /openapi.yaml` (sirve el
+`registerOpenAPIDocs(_:specData:docsTitle:)` registra `GET /openapi.yaml` (sirve el
 fichero de spec en crudo) y `GET /docs` (una página Swagger UI cargada desde un CDN
 público, que apunta a él):
 
 ```swift
 import VaporSkeletonKit
 
-registerOpenAPIDocs(app, specFilePath: "Sources/App/openapi.yaml", docsTitle: "MyProject API Docs")
+registerOpenAPIDocs(app, specData: openapiData, docsTitle: "MyProject API Docs")
 ```
 
-`specFilePath` se resuelve relativo a `app.directory.workingDirectory`, así que la misma
-llamada funciona tanto en desarrollo local como dentro de la imagen Docker de producción,
-siempre que el fichero YAML se copie a esa misma ruta relativa dentro de la imagen.
+El spec se inyecta como `Data` en lugar de leerse del disco directamente con una ruta.
+De esta forma, en vez de depender de rutas relativas o absolutas, el proyecto consumidor
+debe proveer el documento (por ejemplo importándolo como bundle o desde un paquete externo).
 
 ## Montaje del servidor MCP
 
