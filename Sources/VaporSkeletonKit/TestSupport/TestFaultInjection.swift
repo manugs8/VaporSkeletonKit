@@ -27,7 +27,6 @@ actor FaultInjectionStore {
 }
 
 /// Middleware para inyectar fallos en los resposnes durante tests.
-/// Solo se activa si `TEST_FAULT_INJECTION_ENABLED=true` (ver ADR 0011).
 struct TestFaultInjectionMiddleware: AsyncMiddleware {
     static let controlPath = "/_test/fault"
 
@@ -80,14 +79,8 @@ struct TestFaultInjectionMiddleware: AsyncMiddleware {
     }
 }
 
-/// Registra el endpoint /_test/fault para inyectar fallos en tests E2E y de Integración si la variable
-/// de entorno TEST_FAULT_INJECTION_ENABLED es verdara. Debe ser llamada antes de cualquier middleware que
-/// intercepte o valide el estado de la request (como configuración de WorkOSBearerAuth).
-public func registerTestFaultInjection(_ app: Application) {
-    if Environment.get("TEST_FAULT_INJECTION_ENABLED").flatMap(Bool.init) == true {
-        app.logger.warning("TEST_FAULT_INJECTION_ENABLED=true — /_test/fault is live. Never set this in production.")
-        app.middleware.use(TestFaultInjectionMiddleware(store: FaultInjectionStore()), at: .beginning)
-    } else {
-        app.logger.info("TEST_FAULT_INJECTION_ENABLED is not set to true — /_test/fault is not mounted.")
-    }
+/// Registra el endpoint /_test/fault para inyectar fallos en tests E2E y de Integración.
+/// Se usa internamente dentro de `registerE2EMode`.
+func registerTestFaultInjection(_ app: Application) {
+    app.middleware.use(TestFaultInjectionMiddleware(store: FaultInjectionStore()), at: .beginning)
 }
