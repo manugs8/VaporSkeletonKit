@@ -24,13 +24,41 @@ public struct PrepareScenarioRequest: Content, Sendable {
     }
 }
 
+/// Un fallo al intentar activar el modo E2E en un entorno no seguro.
+public enum E2EModeError: Error, CustomStringConvertible, Sendable {
+    /// `registerE2EMode` se llamó con `app.environment == .production`.
+    case refusedInProduction
+
+    public var description: String {
+        switch self {
+        case .refusedInProduction:
+            return "registerE2EMode fue llamado con app.environment == .production. " +
+                "Los endpoints /e2e/prepare (que puede truncar todas las tablas) y " +
+                "/_test/fault nunca deben exponerse en producción — revisa qué " +
+                "condición activa E2E Mode en tu configure(_:)."
+        }
+    }
+}
+
 /// Activa las capacidades del entorno E2E, habilitando tanto la inyección de fallos como el
 /// reseteo y preparación de escenarios en base de datos.
 ///
-/// **ATENCIÓN:** Nunca llamar a este método en un entorno de producción.
-public func registerE2EMode(_ app: Application, sceneryFactory: any SceneryFactoryProtocol) {
+/// Se niega a activarse — lanzando ``E2EModeError/refusedInProduction`` en vez de
+/// registrar ninguna ruta — cuando `app.environment == .production`. Es la única
+/// barrera real contra una activación accidental: la condición que decide *cuándo*
+/// llamar a esta función (una variable de entorno, un flag de build...) sigue siendo
+/// responsabilidad del proyecto consumidor, pero un error en esa condición ya no puede
+/// exponer `/e2e/prepare` (que puede truncar todas las tablas) ni `/_test/fault` en
+/// un despliegue real.
+///
+/// - Throws: ``E2EModeError/refusedInProduction`` si `app.environment == .production`.
+public func registerE2EMode(_ app: Application, sceneryFactory: any SceneryFactoryProtocol) throws {
+    guard app.environment != .production else {
+        throw E2EModeError.refusedInProduction
+    }
+
     app.logger.warning("E2E Mode is live (includes /e2e/prepare and /_test/fault). Never use this in production.")
-    
+
     // 1. Inyección de fallos
     registerTestFaultInjection(app)
     

@@ -11,13 +11,8 @@ struct E2EModeTests {
     @Test("Refuses to activate when app.environment is production")
     func refusesInProduction() async throws {
         let app = try await Application.make(.production)
-        do {
-            #expect(throws: (any Error).self) {
-                try registerE2EMode(app, sceneryFactory: StubSceneryFactory())
-            }
-        } catch {
-            try? await app.asyncShutdown()
-            throw error
+        #expect(throws: E2EModeError.refusedInProduction) {
+            try registerE2EMode(app, sceneryFactory: StubSceneryFactory())
         }
         try await app.asyncShutdown()
     }
