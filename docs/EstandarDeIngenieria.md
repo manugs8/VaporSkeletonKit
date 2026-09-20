@@ -2,7 +2,7 @@
 
 ## Vapor + Fluent + PostgreSQL/Neon + Render + WorkOS + MCP
 
-> **Estado:** Borrador v0.2 — mayoría de las cuestiones abiertas de origen (§24) ya
+> **Estado:** Borrador v0.2 — mayoría de las cuestiones abiertas de origen (§20) ya
 > resueltas por `VaporSkeletonKit`/`WorkOSBearerAuth`; quedan por decidir las marcadas
 > como tal.
 > **Propósito:** Estándar reutilizable de arquitectura e ingeniería para proyectos
@@ -259,7 +259,7 @@ Especificación de endpoint REST:
 5. Comportamiento
 6. Escenarios de error
 7. Consumidores relacionados
-8. Plan de pruebas (con una suite mínima de contrato, §8.1, separada del resto)
+8. Plan de pruebas (incluye una suite mínima de contrato, separada del resto)
 9. Escenarios de regresión de referencia
 10. Comportamiento deliberadamente no probado
 
@@ -300,7 +300,7 @@ tests deben proteger comportamiento observable o invariantes importantes.
 
 ---
 
-# 3. Estrategia de seed E2E
+# 8. Estrategia de seed E2E
 
 El seed forma parte de la infraestructura de pruebas. Debe ser determinista,
 documentado, mínimo, representativo y reproducible.
@@ -530,8 +530,8 @@ Este documento sigue siendo, en parte, un borrador. Estado de cada cuestión ori
    clave de prueba fija, en vez de un token real de larga duración).
 
 3. Estrategia de transporte y autenticación para E2E de MCP. **Resuelto** —
-   `VaporSkeletonKitE2ESupport` aporta un `E2EMCPClient` sobre `HTTPClientTransport` con
-   el mismo patrón de `authToken` que el cliente REST; ver
+   `VaporSkeletonKitMCPE2ESupport` aporta un `E2EMCPClient` sobre `HTTPClientTransport`
+   con el mismo patrón de `authToken` que el cliente REST; ver
    [Testing y E2E](../Sources/VaporSkeletonKit/VaporSkeletonKit.docc/Articles/TestingYE2E.md).
 
 4. Si REST y MCP deben compartir siempre servicios de aplicación o únicamente cuando su
@@ -539,7 +539,8 @@ Este documento sigue siendo, en parte, un borrador. Estado de cada cuestión ori
    proyecto, no una regla con respuesta única.
 
 5. Plantillas estándar para los archivos de especificación de endpoints/herramientas.
-    **Resuelto** — ver §6, estructura de `ENDPOINT-TEMPLATE.md`/`MCP-TOOL-TEMPLATE.md`.
+    **Resuelto** — ver §6: la estructura numerada de "Especificación de endpoint REST"/
+    "Especificación de herramienta MCP" es la plantilla, no un fichero aparte.
 
 Los puntos aún abiertos (1, 4) deberían resolverse antes de considerar el
 documento un estándar organizativo definitivo.

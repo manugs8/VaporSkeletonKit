@@ -14,10 +14,11 @@ Un proyecto consumidor solo escribe tres cosas: su `configure(_:)`, sus modelos/
 dominio, y el wrapper delgado que conecta el paquete de TestSupport. Todo lo demás — arrancar la app, hablar con Postgres,
 servir `/docs`, montar MCP, comprobar salud, y el soporte para pruebas locales — vive aquí.
 
-## Tres productos SPM, sin dependencias entre sí
+## Seis productos SPM, con dependencias deliberadas entre sí
 
-`Package.swift` declara tres `.library` independientes, cada una con un propósito y un
-peso de dependencias distinto:
+`Package.swift` declara seis `.library`, cada una con un propósito y un peso de
+dependencias distinto — tres para la superficie base (Postgres, health, arranque) y
+tres equivalentes para MCP, que dependen de las primeras en vez de duplicarlas:
 
 | Producto | Se enlaza en | Depende de |
 |---|---|---|
