@@ -2,11 +2,10 @@
 
 Infraestructura genérica y libre de lógica de negocio para backends Vapor 4 + Fluent +
 PostgreSQL desplegados en Render contra Neon. Un proyecto depende de este paquete vía
-SPM, y referencia los workflows de CI/CD de este repo por path, en lugar de mantener
-copias propias de ficheros `.swift`/`.yml` que acaban divergiendo de las correcciones
-hechas aquí. Un proyecto consumidor enlaza los targets Swift de abajo y monta su propio
-wrapper delgado para ejecución —
-todo lo demás queda libre para que se centre en su propia lógica de negocio.
+SPM en lugar de mantener copias propias de ficheros `.swift` que acaban divergiendo de
+las correcciones hechas aquí. Un proyecto consumidor enlaza los targets Swift de abajo y
+monta su propio wrapper delgado para ejecución — todo lo demás queda libre para que se
+centre en su propia lógica de negocio.
 
 Paquete complementario: [`WorkOSBearerAuth`](https://github.com/manugs8/WorkOSBearerAuth)
 cubre la autenticación; este paquete cubre todo lo demás que no es ni autenticación ni
@@ -38,7 +37,7 @@ explican no solo el qué, sino el porqué de cada pieza.
 ## Instalación
 
 ```swift
-.package(url: "https://github.com/manugs8/VaporSkeletonKit.git", from: "0.1.0")
+.package(url: "https://github.com/manugs8/VaporSkeletonKit.git", from: "1.3.5")
 ```
 
 Añade `"VaporSkeletonKit"` como dependencia del target que llama a `configure(_:)` sobre
@@ -154,7 +153,7 @@ testing para el propio target de tests de un proyecto consumidor — no enlazado
 `WorkOSBearerAuthTesting`:
 
 ```swift
-.package(url: "https://github.com/manugs8/VaporSkeletonKit.git", from: "0.3.0")
+.package(url: "https://github.com/manugs8/VaporSkeletonKit.git", from: "1.3.5")
 
 // En las dependencias de tu target de tests:
 .product(name: "VaporSkeletonKitTesting", package: "VaporSkeletonKit")
@@ -178,11 +177,12 @@ func withMigratedApp(_ test: (Application) async throws -> Void) async throws {
 
 `sendMCP(_:_:path:)` envía una única petición JSON-RPC tipada a la ruta montada por
 `mountMCPServer(_:...)` y decodifica la respuesta tipada, para usar en tests de
-integración basados en `VaporTesting`:
+integración basados en `VaporTesting`. Vive en `VaporSkeletonKitMCPTesting`, un producto
+aparte de `VaporSkeletonKitTesting` (solo lo necesitas si tu proyecto monta MCP):
 
 ```swift
 import MCP
-import VaporSkeletonKitTesting
+import VaporSkeletonKitMCPTesting
 
 let response = try await sendMCP(app, ListTools.request(id: 1, ListTools.Parameters()))
 let tools = try response.result.get().tools
@@ -197,7 +197,7 @@ proceso — deliberadamente ligero en dependencias (sin Vapor/Fluent), de modo q
 sea seguro enlazarlo desde un target de seed determinista:
 
 ```swift
-.package(url: "https://github.com/manugs8/VaporSkeletonKit.git", from: "0.5.0")
+.package(url: "https://github.com/manugs8/VaporSkeletonKit.git", from: "1.3.5")
 
 // En las dependencias de tus targets de soporte E2E/tests:
 .product(name: "VaporSkeletonKitE2ESupport", package: "VaporSkeletonKit")
@@ -221,10 +221,11 @@ let item = try await client.post("items", json: NewItem(name: "Widget"), as: Ite
 
 `E2EMCPClient.connect(...)` construye un `MCP.Client` real sobre `HTTPClientTransport`,
 de la misma forma en que lo haría un agente externo, adjuntando un bearer token de la
-misma manera:
+misma manera. Vive en `VaporSkeletonKitMCPE2ESupport`, un producto aparte de
+`VaporSkeletonKitE2ESupport` (solo lo necesitas si tu proyecto monta MCP):
 
 ```swift
-import VaporSkeletonKitE2ESupport
+import VaporSkeletonKitMCPE2ESupport
 
 let client = try await E2EMCPClient.connect(authToken: { try await myTokenSigner.validToken() })
 let (content, isError) = try await client.callTool(name: "list_items")
@@ -278,5 +279,7 @@ docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres:16
 swift test
 ```
 
-Las validaciones locales ejecutan la misma suite contra un contenedor de servicio
-`postgres:16` en cada push/PR a `main`.
+Este repo no tiene pipeline de CI remoto — consistente con la estrategia "pruebas
+locales primero" de
+[`docs/EstandarDeIngenieria.md`](docs/EstandarDeIngenieria.md#12-pruebas-locales-y-testsupport).
+Valida localmente con `swift test` antes de cada commit/push.
