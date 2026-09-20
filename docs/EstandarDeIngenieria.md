@@ -31,7 +31,7 @@ de:
 * WorkOS
 * MCP
 * OpenAPI
-* Pruebas Locales (TestSupport)
+* Pruebas Locales (utilidades de `TestSupport` dentro de `VaporSkeletonKit`)
 * Desarrollo asistido por IA
 
 El objetivo no es imponer una aplicación concreta ni un modelo de dominio determinado.
@@ -115,7 +115,7 @@ Clientes → REST API / Servidor MCP → Autenticación WorkOS → Vapor
     (middleware, handlers, services, MCP tools) → Fluent → PostgreSQL / Neon
 ```
 
-Alrededor de la aplicación: Desarrollo en local → TestSupport (Pruebas Locales) → Despliegue a producción.
+Alrededor de la aplicación: Desarrollo en local → Pruebas Locales (`TestSupport`) → Despliegue a producción.
 
 El diagrama completo de piezas, y de qué resuelve cada paquete compartido
 (`VaporSkeletonKit` vs `WorkOSBearerAuth`), está en el artículo
@@ -401,7 +401,10 @@ correcto.
 # 12. Pruebas Locales y TestSupport
 
 El pipeline de CI remoto desaparece a favor de validaciones y pruebas de integración y E2E en local.
-Se utiliza el paquete de `TestSupport` para realizar inyecciones de errores ("programar" el servidor para fallar) de modo que se puedan verificar comportamientos complejos en local sin necesidad de pipelines remotos.
+Se utilizan las utilidades de `TestSupport` (una carpeta dentro del target `VaporSkeletonKit`,
+no un producto SPM aparte) para realizar inyecciones de errores ("programar" el servidor para
+fallar) de modo que se puedan verificar comportamientos complejos en local sin necesidad de
+pipelines remotos.
 
 ---
 
