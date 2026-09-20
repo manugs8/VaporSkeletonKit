@@ -16,7 +16,10 @@ public func withE2EServer(
     configure: (Application, _ dynamicDB: String) async throws -> Void,
     test: (E2EHTTPClient) async throws -> Void
 ) async throws {
-    // 1. Configuramos credenciales máster
+    // 1. Levantamos NUESTRO SERVER pasándole explícitamente el dynamicDBName
+    let e2eApp = try await Application.make(.testing)
+
+    // 2. Configuramos credenciales máster
     let masterConfig = PostgresEnvironmentConfig(
         databaseURL: Environment.get("DATABASE_URL"),
         host: Environment.get("DATABASE_HOST") ?? "localhost",
@@ -27,12 +30,9 @@ public func withE2EServer(
         tlsDisabled: Environment.get("DATABASE_TLS") != "require"
     )
     
-    // 2. Extraemos la creación de la BD dinámica
+    // 3. Extraemos la creación de la BD dinámica
     let dynamicDBName = try await createE2EDatabase(masterConfig: masterConfig)
-    
-    // 3. Levantamos NUESTRO SERVER pasándole explícitamente el dynamicDBName
-    let e2eApp = try await Application.make(.testing)
-    
+        
     // A partir de aquí necesitamos asegurar el DROP de la base de datos generada
     do {
         try await configure(e2eApp, dynamicDBName)
