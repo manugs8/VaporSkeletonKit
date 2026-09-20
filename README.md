@@ -2,11 +2,10 @@
 
 Infraestructura genérica y libre de lógica de negocio para backends Vapor 4 + Fluent +
 PostgreSQL desplegados en Render contra Neon. Un proyecto depende de este paquete vía
-SPM, y referencia los workflows de CI/CD de este repo por path, en lugar de mantener
-copias propias de ficheros `.swift`/`.yml` que acaban divergiendo de las correcciones
-hechas aquí. Un proyecto consumidor enlaza los targets Swift de abajo y monta su propio
-wrapper delgado para ejecución —
-todo lo demás queda libre para que se centre en su propia lógica de negocio.
+SPM en lugar de mantener copias propias de ficheros `.swift` que acaban divergiendo de
+las correcciones hechas aquí. Un proyecto consumidor enlaza los targets Swift de abajo y
+monta su propio wrapper delgado para ejecución — todo lo demás queda libre para que se
+centre en su propia lógica de negocio.
 
 Paquete complementario: [`WorkOSBearerAuth`](https://github.com/manugs8/WorkOSBearerAuth)
 cubre la autenticación; este paquete cubre todo lo demás que no es ni autenticación ni
@@ -280,5 +279,7 @@ docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres:16
 swift test
 ```
 
-Las validaciones locales ejecutan la misma suite contra un contenedor de servicio
-`postgres:16` en cada push/PR a `main`.
+Este repo no tiene pipeline de CI remoto — consistente con la estrategia "pruebas
+locales primero" de
+[`docs/EstandarDeIngenieria.md`](docs/EstandarDeIngenieria.md#12-pruebas-locales-y-testsupport).
+Valida localmente con `swift test` antes de cada commit/push.
