@@ -1,61 +1,100 @@
 import Fluent
 import Vapor
+import VaporSkeletonKit
 import VaporSkeletonKitE2ESupport
+import SQLKit
 import Foundation
 
 /// Levanta dinámicamente un nodo del servidor en un puerto aleatorio libre del SO,
-/// aplicándole la configuración y exponiendo los endpoints Backdoor (E2E).
-/// Permite un teardown seguro y asíncrono para deshacer migraciones y apagar el servidor,
-/// aislando por completo cada test para su ejecución paralela (Testing Framework).
+/// aprovisionando una Base de Datos en Postgres temporal 100% aislada para este test y
+/// exponiendo los endpoints Backdoor (E2E). Permite un teardown seguro y asíncrono.
 ///
-/// Este método arranca un NIO Server real (`app.server.start()`), lo que permite que 
-/// un `E2EHTTPClient` emita peticiones de red TCP puras simulando un entorno productivo.
+/// Este método soluciona el problema de la concurrencia delegando en el Closure el 
+/// nombre de la base de datos recién generada (`dynamicDB`), que el consumidor debe usar 
+/// en su propia configuración de test.
 public func withE2EServer(
-    environment: [String: String] = [:],
-    configure: (Application) async throws -> Void,
+    configure: (Application, _ dynamicDB: String) async throws -> Void,
     test: (E2EHTTPClient) async throws -> Void
 ) async throws {
-    // 1. Forzamos modo E2E (Enciende middlewares y rutas _test/fault) y seteamos variables externas
-    setenv("E2E_MODE", "true", 1)
-    for (key, value) in environment {
-        setenv(key, value, 1)
-    }
+    // 1. Configuramos credenciales máster
+    let masterConfig = PostgresEnvironmentConfig(
+        databaseURL: Environment.get("DATABASE_URL"),
+        host: Environment.get("DATABASE_HOST") ?? "localhost",
+        port: Environment.get("DATABASE_PORT").flatMap(Int.init) ?? 5432,
+        username: Environment.get("DATABASE_USERNAME") ?? "postgres",
+        password: Environment.get("DATABASE_PASSWORD") ?? "postgres",
+        database: Environment.get("DATABASE_NAME") ?? "postgres",
+        tlsDisabled: Environment.get("DATABASE_TLS") != "require"
+    )
     
-    let app = try await Application.make(.testing)
+    // 2. Extraemos la creación de la BD dinámica
+    let dynamicDBName = try await createE2EDatabase(masterConfig: masterConfig)
+    
+    // 3. Levantamos NUESTRO SERVER pasándole explícitamente el dynamicDBName
+    let e2eApp = try await Application.make(.testing)
+    
+    // A partir de aquí necesitamos asegurar el DROP de la base de datos generada
     do {
-        // Enlaza la configuración del proyecto consumidor a esta instancia
-        try await configure(app)
+        try await configure(e2eApp, dynamicDBName)
         
-        // 2. Limpieza de base de datos y lanzamiento de migraciones aisladas
-        try? await app.autoRevert()
-        try await app.autoMigrate()
+        try? await e2eApp.autoRevert()
+        try await e2eApp.autoMigrate()
         
-        // 3. Asignar puerto libre aleatorio y levantar el NIO Server a nivel OS
-        app.http.server.configuration.port = 0
-        try await app.asyncBoot()
-        try app.server.start()
+        e2eApp.http.server.configuration.port = 0
+        try await e2eApp.asyncBoot()
+        try e2eApp.server.start()
         
-        guard let localAddress = app.http.server.shared.localAddress,
-              let port = localAddress.port else {
+        guard let localAddress = e2eApp.http.server.shared.localAddress,
+              let serverPort = localAddress.port else {
             fatalError("No se ha podido obtener el puerto dinámico asignado localmente en withE2EServer")
         }
         
-        // Creamos el cliente E2E apuntando directamente al puerto cedido por macOS al NIO server
-        let client = E2EHTTPClient(baseURL: URL(string: "http://127.0.0.1:\(port)")!)
+        let client = E2EHTTPClient(baseURL: URL(string: "http://127.0.0.1:\(serverPort)")!)
         
-        // 4. Se ejecuta el bloque del Test (E2EHTTPClient) inyectado de manera segura
+        // Ejecutamos Test inyectado
         try await test(client)
         
-        // 5. Destrucción Asíncrona Garantizada: Se destruyen tablas y recursos NIO
-        try? await app.autoRevert()
-        await app.server.shutdown()
+        try? await e2eApp.autoRevert()
+        await e2eApp.server.shutdown()
     } catch {
-        // Si hay fallo o assert en el test -> Garantizamos también la limpieza de entorno
-        try? await app.autoRevert()
-        await app.server.shutdown()
-        try? await app.asyncShutdown()
+        // Cleanup ante fallo
+        try? await e2eApp.autoRevert()
+        await e2eApp.server.shutdown()
+        try? await e2eApp.asyncShutdown()
+        try? await dropE2EDatabase(dynamicDBName, masterConfig: masterConfig)
         throw error
     }
     
-    try await app.asyncShutdown()
+    // 4. Terminar instancia server
+    try await e2eApp.asyncShutdown()
+    
+    // 5. Destrucción Garantizada de la BD temporal E2E
+    try await dropE2EDatabase(dynamicDBName, masterConfig: masterConfig)
+}
+
+private func createE2EDatabase(masterConfig: PostgresEnvironmentConfig) async throws -> String {
+    let dynamicDBName = "e2e_" + UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
+    let adminApp = try await Application.make(.testing)
+    adminApp.databases.use(try makePostgresConfiguration(from: masterConfig), as: .psql)
+    
+    if let sql = adminApp.db as? any SQLDatabase {
+        try await sql.raw("CREATE DATABASE \"\(unsafeRaw: dynamicDBName)\"").run()
+    } else {
+        adminApp.logger.warning("No se pudo resolver adminApp.db como SQLDatabase para crear la BD E2E dinámica.")
+    }
+    try await adminApp.asyncShutdown()
+    
+    return dynamicDBName
+}
+
+private func dropE2EDatabase(_ name: String, masterConfig: PostgresEnvironmentConfig) async throws {
+    let adminApp = try await Application.make(.testing)
+    adminApp.databases.use(try makePostgresConfiguration(from: masterConfig), as: .psql)
+    
+    if let sql = adminApp.db as? any SQLDatabase {
+        // En PostgreSQL a veces hay conexiones pendientes, por lo que forzamos desconexiones antes de hacer drop:
+        try? await sql.raw("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '\(unsafeRaw: name)'").run()
+        try await sql.raw("DROP DATABASE \"\(unsafeRaw: name)\"").run()
+    }
+    try await adminApp.asyncShutdown()
 }

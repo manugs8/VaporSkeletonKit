@@ -119,15 +119,20 @@ Esta función aprovisiona un entorno idéntico al de `withTestApp` (levantando u
 
 ```swift
 try await withE2EServer(
-    environment: ["TEST_FLAG_E2E": "ON"],
-    configure: configureTestDatabase
+    configure: { app, dynamicDB in
+        // Aprovisiona base de datos dinámicamente inyectada (UUID)
+        var config = PostgresEnvironmentConfig(...) // Leer desde ambiente base
+        config.database = dynamicDB                 // 🚀 Aislamiento absoluto concurrente
+        app.databases.use(try makePostgresConfiguration(from: config), as: .psql)
+        try configureRoutes(app)
+    }
 ) { client in
     let response = try await client.get("/ping")
     #expect(response.status == 200)
 }
 ```
 
-Es especialmente útil para habilitar la ejecución paralela y concurrente de tests funcionales de Extremo a Extremo en los pipelines sin que estos se pisen las bases de datos ni arrojen errores de `Port 8080 is already in use`. Este bloque se encarga asimismo de forzar el flag `E2E_MODE=true` habilitando los middlewares de inyección de errores automáticamente.
+Es especialmente útil para habilitar la concurrencia verdadera (como la que exige el framework `Swift Testing`) de tests funcionales E2E sin que estos se pisen las bases de datos ni arrojen errores de `Port 8080 is already in use`. El bloque subyacente interactúa como *Root* frente a Postgres creando una **base de datos temporal aleatoria** (vía UUID, de ahí el parámetro delegado `dynamicDB`) y se ocupa posteriormente de ejecutar `DROP DATABASE` al terminar el hilo, incluso si surge un crash. Esto previene eficazmente *race conditions* a nivel global (`getenv`). Además forzará internamente el flag `E2E_MODE=true` para habilitar middlewares de inyección.
 ## Inyección de Fallos
 
 Para simular fallos 500, timeouts o comportamientos impredecibles durante tests E2E y de Integración, el Kit incluye un middleware `TestFaultInjectionMiddleware` que permite *armar* temporalmente un error en una ruta concreta. 
