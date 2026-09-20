@@ -111,6 +111,28 @@ struct E2EHTTPClientTests {
             }
         }
     }
+
+    @Test("get(query:) attaches query items as a real query string, not mangled into the path")
+    func queryStringIsAttachedCorrectly() async throws {
+        try await withRunningServer(port: 18101, mount: mountEchoQueryRoute) { baseURL in
+            let client = E2EHTTPClient(baseURL: baseURL)
+            let response = try await client.get(
+                "echo-query", query: [URLQueryItem(name: "filter", value: "x"), URLQueryItem(name: "page", value: "2")]
+            )
+            #expect(String(decoding: response.body, as: UTF8.self) == "filter=x&page=2")
+        }
+    }
+
+    @Test("get(query:as:) round-trips query items through the decoding overload too")
+    func queryStringWithDecoding() async throws {
+        try await withRunningServer(port: 18102, mount: mountEchoQueryRoute) { baseURL in
+            let client = E2EHTTPClient(baseURL: baseURL)
+            let response = try await client.get(
+                "echo-query-json", query: [URLQueryItem(name: "q", value: "widgets")], as: Message.self
+            )
+            #expect(response == Message(text: "q=widgets"))
+        }
+    }
 }
 
 private struct MethodAndBody: Content {
@@ -161,5 +183,14 @@ private func mountCustomHeaderRoute(_ app: Application) throws {
 private func mountEchoContentTypeRoute(_ app: Application) throws {
     app.on(.POST, "echo-content-type", body: .collect) { req -> String in
         req.headers.first(name: .contentType) ?? "none"
+    }
+}
+
+private func mountEchoQueryRoute(_ app: Application) throws {
+    app.get("echo-query") { req -> String in
+        req.url.query ?? ""
+    }
+    app.get("echo-query-json") { req -> Message in
+        Message(text: req.url.query ?? "")
     }
 }

@@ -219,6 +219,17 @@ let response = try await client.get("items", authenticated: false) // sin cabece
 let item = try await client.post("items", json: NewItem(name: "Widget"), as: Item.self)
 ```
 
+`path` se trata siempre como un componente de ruta literal — `"items?filter=x"` no
+funciona como query string, ya que `?`/`&`/`=` se escapan como caracteres de ruta
+normales. Para eso está `query: [URLQueryItem]`, disponible en `get`/`send` (y en la
+sobrecarga que decodifica):
+
+```swift
+let response = try await client.get(
+    "items", query: [URLQueryItem(name: "filter", value: "active"), URLQueryItem(name: "page", value: "2")]
+)
+```
+
 `E2EMCPClient.connect(...)` construye un `MCP.Client` real sobre `HTTPClientTransport`,
 de la misma forma en que lo haría un agente externo, adjuntando un bearer token de la
 misma manera. Vive en `VaporSkeletonKitMCPE2ESupport`, un producto aparte de

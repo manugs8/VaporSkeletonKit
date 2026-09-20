@@ -84,6 +84,18 @@ el servidor rechaza correctamente un `Content-Type` incompatible en vez de inten
 decodificarlo. `put`/`put(encoding:)` existen junto a los `post` ya vistos, para
 ejercitar endpoints `PUT`.
 
+`get`/`send` (y la sobrecarga de `get` que decodifica) aceptan `query: [URLQueryItem]`
+para paginación/filtros. `path` se trata siempre como un componente de ruta literal —
+`baseURL.appendingPathComponent(path)` escapa `?`/`&`/`=` como caracteres normales de
+ruta, así que un `path` como `"items?filter=x"` nunca llega como query string al
+servidor; hay que pasarlo por `query:`, que se adjunta vía `URLComponents`:
+
+```swift
+let response = try await client.get(
+    "items", query: [URLQueryItem(name: "filter", value: "active")]
+)
+```
+
 `E2EMCPClient` construye un `MCP.Client` real sobre `HTTPClientTransport` — un cliente
 MCP genuino, hablando HTTP/JSON-RPC real, exactamente como lo haría un agente externo:
 
