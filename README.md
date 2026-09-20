@@ -219,6 +219,10 @@ let response = try await client.get("items", authenticated: false) // sin cabece
 let item = try await client.post("items", json: NewItem(name: "Widget"), as: Item.self)
 ```
 
+Las sobrecargas que decodifican (`post(json:as:)`, `get(as:)`) aceptan cualquier status
+de éxito (`200..<300`), no solo `200` — incluido `201 Created`, el caso canónico de un
+`POST` de creación.
+
 `E2EMCPClient.connect(...)` construye un `MCP.Client` real sobre `HTTPClientTransport`,
 de la misma forma en que lo haría un agente externo, adjuntando un bearer token de la
 misma manera. Vive en `VaporSkeletonKitMCPE2ESupport`, un producto aparte de
