@@ -16,8 +16,22 @@ struct WithE2EServerTests {
             return
         }
 
+        // MOCK de las credenciales máster que en un consumidor real vendrían de su propio
+        // `.env.local`/`.env` (ver `PostgresEnvironmentConfig`: esta función nunca lee
+        // `Environment` por sí misma, es el llamador quien las resuelve).
+        let masterConfig = PostgresEnvironmentConfig(
+            databaseURL: Environment.get("DATABASE_URL"),
+            host: Environment.get("DATABASE_HOST") ?? "localhost",
+            port: Environment.get("DATABASE_PORT").flatMap(Int.init) ?? 5432,
+            username: Environment.get("DATABASE_USERNAME") ?? "postgres",
+            password: Environment.get("DATABASE_PASSWORD") ?? "postgres",
+            database: Environment.get("DATABASE_NAME") ?? "postgres",
+            tlsDisabled: Environment.get("DATABASE_TLS") != "require"
+        )
+
         // Ejecutamos pasándole la BD dinámica por parámetro
         try await withE2EServer(
+            masterConfig: masterConfig,
             configure: { app, dynamicDB in
                 // MOCK de `configureTestDatabase`
                 let config = PostgresEnvironmentConfig(
@@ -30,7 +44,7 @@ struct WithE2EServerTests {
                     database: dynamicDB,
                     tlsDisabled: Environment.get("DATABASE_TLS") != "require"
                 )
-                
+
                 app.databases.use(try makePostgresConfiguration(from: config), as: .psql)
                 app.get("ping") { _ in "pong" }
             }

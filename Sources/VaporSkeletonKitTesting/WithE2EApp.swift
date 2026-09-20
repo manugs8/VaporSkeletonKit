@@ -9,28 +9,25 @@ import Foundation
 /// aprovisionando una Base de Datos en Postgres temporal 100% aislada para este test y
 /// exponiendo los endpoints Backdoor (E2E). Permite un teardown seguro y asíncrono.
 ///
-/// Este método soluciona el problema de la concurrencia delegando en el Closure el 
-/// nombre de la base de datos recién generada (`dynamicDB`), que el consumidor debe usar 
+/// Este método soluciona el problema de la concurrencia delegando en el Closure el
+/// nombre de la base de datos recién generada (`dynamicDB`), que el consumidor debe usar
 /// en su propia configuración de test.
+///
+/// - Parameter masterConfig: Credenciales con permiso de `CREATE`/`DROP DATABASE`,
+///   usadas para aprovisionar y destruir la base de datos efímera. Siguiendo el mismo
+///   patrón que `PostgresEnvironmentConfig` documenta, esta función nunca lee
+///   `Environment` por sí misma — el llamador es quien conoce su propia raíz de paquete
+///   y cómo cargar su `.env.local`/`.env`, así que es quien debe resolver estos valores
+///   y pasarlos aquí.
 public func withE2EServer(
+    masterConfig: PostgresEnvironmentConfig,
     configure: (Application, _ dynamicDB: String) async throws -> Void,
     test: (E2EHTTPClient) async throws -> Void
 ) async throws {
     // 1. Levantamos NUESTRO SERVER pasándole explícitamente el dynamicDBName
     let e2eApp = try await Application.make(.testing)
 
-    // 2. Configuramos credenciales máster
-    let masterConfig = PostgresEnvironmentConfig(
-        databaseURL: Environment.get("DATABASE_URL"),
-        host: Environment.get("DATABASE_HOST") ?? "localhost",
-        port: Environment.get("DATABASE_PORT").flatMap(Int.init) ?? 5432,
-        username: Environment.get("DATABASE_USERNAME") ?? "postgres",
-        password: Environment.get("DATABASE_PASSWORD") ?? "postgres",
-        database: Environment.get("DATABASE_NAME") ?? "postgres",
-        tlsDisabled: Environment.get("DATABASE_TLS") != "require"
-    )
-    
-    // 3. Extraemos la creación de la BD dinámica
+    // 2. Extraemos la creación de la BD dinámica
     let dynamicDBName = try await createE2EDatabase(masterConfig: masterConfig)
         
     // A partir de aquí necesitamos asegurar el DROP de la base de datos generada
@@ -65,10 +62,10 @@ public func withE2EServer(
         throw error
     }
     
-    // 4. Terminar instancia server
+    // 3. Terminar instancia server
     try await e2eApp.asyncShutdown()
-    
-    // 5. Destrucción Garantizada de la BD temporal E2E
+
+    // 4. Destrucción Garantizada de la BD temporal E2E
     try await dropE2EDatabase(dynamicDBName, masterConfig: masterConfig)
 }
 
