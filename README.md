@@ -37,7 +37,7 @@ explican no solo el qué, sino el porqué de cada pieza.
 ## Instalación
 
 ```swift
-.package(url: "https://github.com/manugs8/VaporSkeletonKit.git", from: "0.1.0")
+.package(url: "https://github.com/manugs8/VaporSkeletonKit.git", from: "1.3.5")
 ```
 
 Añade `"VaporSkeletonKit"` como dependencia del target que llama a `configure(_:)` sobre
@@ -153,7 +153,7 @@ testing para el propio target de tests de un proyecto consumidor — no enlazado
 `WorkOSBearerAuthTesting`:
 
 ```swift
-.package(url: "https://github.com/manugs8/VaporSkeletonKit.git", from: "0.3.0")
+.package(url: "https://github.com/manugs8/VaporSkeletonKit.git", from: "1.3.5")
 
 // En las dependencias de tu target de tests:
 .product(name: "VaporSkeletonKitTesting", package: "VaporSkeletonKit")
@@ -197,7 +197,7 @@ proceso — deliberadamente ligero en dependencias (sin Vapor/Fluent), de modo q
 sea seguro enlazarlo desde un target de seed determinista:
 
 ```swift
-.package(url: "https://github.com/manugs8/VaporSkeletonKit.git", from: "0.5.0")
+.package(url: "https://github.com/manugs8/VaporSkeletonKit.git", from: "1.3.5")
 
 // En las dependencias de tus targets de soporte E2E/tests:
 .product(name: "VaporSkeletonKitE2ESupport", package: "VaporSkeletonKit")
