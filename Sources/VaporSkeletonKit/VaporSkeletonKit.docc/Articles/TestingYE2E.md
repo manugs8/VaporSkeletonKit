@@ -109,6 +109,25 @@ arranca una `Application` real, la vincula a un socket TCP real en
 artículo que no forma parte de la API pública del kit, porque es un detalle interno de
 cómo este mismo repo se testea a sí mismo.
 
+
+
+## Tests de Componente / E2E In-Process: `withE2EServer`
+
+Mientras que `withTestApp` prueba la integración en-memoria, y los tests E2E puros atacan componentes de red desplegados mediante `E2EEnvironment`, `VaporSkeletonKitTesting` ofrece un puente ideal: **`withE2EServer`**.
+
+Esta función aprovisiona un entorno idéntico al de `withTestApp` (levantando una instancia de Vapor completa y migrando base de datos de manera aislada) combinándolo con las garantías de la capa de transporte real. Se enciende un NIO Server efímero sobre el "Port 0" provisto por el sistema operativo, permitiendo probar la aplicación usando TCP HTTP puro sin peligro de colisión de puertos:
+
+```swift
+try await withE2EServer(
+    environment: ["TEST_FLAG_E2E": "ON"],
+    configure: configureTestDatabase
+) { client in
+    let response = try await client.get("/ping")
+    #expect(response.status == 200)
+}
+```
+
+Es especialmente útil para habilitar la ejecución paralela y concurrente de tests funcionales de Extremo a Extremo en los pipelines sin que estos se pisen las bases de datos ni arrojen errores de `Port 8080 is already in use`. Este bloque se encarga asimismo de forzar el flag `E2E_MODE=true` habilitando los middlewares de inyección de errores automáticamente.
 ## Inyección de Fallos
 
 Para simular fallos 500, timeouts o comportamientos impredecibles durante tests E2E y de Integración, el Kit incluye un middleware `TestFaultInjectionMiddleware` que permite *armar* temporalmente un error en una ruta concreta. 

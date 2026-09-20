@@ -45,6 +45,7 @@ let package = Package(
         .target(
             name: "VaporSkeletonKitTesting",
             dependencies: [
+                .target(name: "VaporSkeletonKitE2ESupport"),
                 .product(name: "Vapor", package: "vapor"),
                 .product(name: "Fluent", package: "fluent"),
                 .product(name: "VaporTesting", package: "vapor"),
