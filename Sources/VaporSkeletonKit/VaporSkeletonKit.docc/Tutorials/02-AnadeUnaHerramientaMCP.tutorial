@@ -1,9 +1,10 @@
 @Tutorial(time: 12) {
     @Intro(title: "Añade una herramienta MCP propia") {
         Partiendo del servidor del tutorial anterior, vas a montar un servidor MCP con
-        ``mountMCPServer(_:name:version:instructions:tools:resources:path:)``,
-        implementar tu primera ``MCPTool`` propia, manejar sus errores con
-        ``MCPToolError``, y probarla con `sendMCP` de `VaporSkeletonKitMCPTesting`.
+        `mountMCPServer(_:name:version:instructions:tools:resources:path:)`,
+        implementar tu primera `MCPTool` propia, manejar sus errores con
+        `MCPToolError`, y probarla con `sendMCP` de `VaporSkeletonKitMCPTesting`
+        (símbolos de `VaporSkeletonKitMCP`/`VaporSkeletonKitMCPTesting`, ver <doc:ServidorMCP>).
 
         @Image(source: "flujo-peticion-mcp", alt: "Ciclo de vida de una petición tools/call, desde el cliente MCP hasta la herramienta y de vuelta.")
     }
@@ -37,7 +38,7 @@
         @Steps {
             @Step {
                 Crea `Sources/App/Tools/ListWidgetsTool.swift`. `app` llega por
-                inicializador, igual que en ``GetHealthTool``, para poder consultar
+                inicializador, igual que en `GetHealthTool`, para poder consultar
                 `app.db` desde `call(arguments:)`.
 
                 @Code(name: "Sources/App/Tools/ListWidgetsTool.swift", file: "t2-02a-tool.swift", reset: true)
@@ -45,7 +46,7 @@
 
             @Step {
                 Envuelve la consulta en un `do/catch` que traduzca cualquier fallo de
-                Fluent a ``MCPToolError/database(_:)``. Así, si la consulta falla, el
+                Fluent a `MCPToolError.database(_:)`. Así, si la consulta falla, el
                 modelo que llamó a la herramienta recibe un resultado que puede leer
                 (`isError: true` y un `kind` de error), no una petición HTTP rota.
 
