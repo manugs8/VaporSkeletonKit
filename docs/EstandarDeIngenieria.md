@@ -530,8 +530,8 @@ Este documento sigue siendo, en parte, un borrador. Estado de cada cuestión ori
    clave de prueba fija, en vez de un token real de larga duración).
 
 3. Estrategia de transporte y autenticación para E2E de MCP. **Resuelto** —
-   `VaporSkeletonKitE2ESupport` aporta un `E2EMCPClient` sobre `HTTPClientTransport` con
-   el mismo patrón de `authToken` que el cliente REST; ver
+   `VaporSkeletonKitMCPE2ESupport` aporta un `E2EMCPClient` sobre `HTTPClientTransport`
+   con el mismo patrón de `authToken` que el cliente REST; ver
    [Testing y E2E](../Sources/VaporSkeletonKit/VaporSkeletonKit.docc/Articles/TestingYE2E.md).
 
 4. Si REST y MCP deben compartir siempre servicios de aplicación o únicamente cuando su

@@ -178,11 +178,12 @@ func withMigratedApp(_ test: (Application) async throws -> Void) async throws {
 
 `sendMCP(_:_:path:)` envía una única petición JSON-RPC tipada a la ruta montada por
 `mountMCPServer(_:...)` y decodifica la respuesta tipada, para usar en tests de
-integración basados en `VaporTesting`:
+integración basados en `VaporTesting`. Vive en `VaporSkeletonKitMCPTesting`, un producto
+aparte de `VaporSkeletonKitTesting` (solo lo necesitas si tu proyecto monta MCP):
 
 ```swift
 import MCP
-import VaporSkeletonKitTesting
+import VaporSkeletonKitMCPTesting
 
 let response = try await sendMCP(app, ListTools.request(id: 1, ListTools.Parameters()))
 let tools = try response.result.get().tools
@@ -221,10 +222,11 @@ let item = try await client.post("items", json: NewItem(name: "Widget"), as: Ite
 
 `E2EMCPClient.connect(...)` construye un `MCP.Client` real sobre `HTTPClientTransport`,
 de la misma forma en que lo haría un agente externo, adjuntando un bearer token de la
-misma manera:
+misma manera. Vive en `VaporSkeletonKitMCPE2ESupport`, un producto aparte de
+`VaporSkeletonKitE2ESupport` (solo lo necesitas si tu proyecto monta MCP):
 
 ```swift
-import VaporSkeletonKitE2ESupport
+import VaporSkeletonKitMCPE2ESupport
 
 let client = try await E2EMCPClient.connect(authToken: { try await myTokenSigner.validToken() })
 let (content, isError) = try await client.callTool(name: "list_items")
