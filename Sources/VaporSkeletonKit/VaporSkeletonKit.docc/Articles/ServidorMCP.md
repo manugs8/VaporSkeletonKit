@@ -49,7 +49,7 @@ private func handleMCPRequest(_ req: Vapor.Request, /* ... */) async throws -> V
 
 ## Dos protocolos, cero conocimiento del dominio
 
-``MCPTool`` y ``MCPResource`` son el único punto de conexión entre la infraestructura
+`MCPTool` y `MCPResource` (`VaporSkeletonKitMCP`) son el único punto de conexión entre la infraestructura
 MCP genérica de este kit y las herramientas propias de cada proyecto. Ninguno de los dos
 protocolos, ni el código de `MCPServerFactory`/`MCPHTTPBridge` que los despacha, conoce
 ningún modelo de negocio concreto:
@@ -65,7 +65,7 @@ public protocol MCPTool: Sendable {
 }
 ```
 
-``GetHealthTool`` (ver <doc:ComprobacionesDeSalud>) es el único `MCPTool` que trae este
+`GetHealthTool` (ver <doc:ComprobacionesDeSalud>) es el único `MCPTool` que trae este
 kit — todo lo demás lo implementa el proyecto consumidor para su propio dominio.
 
 ## `MCPToolError`: el canal de error que un modelo puede leer
@@ -73,7 +73,7 @@ kit — todo lo demás lo implementa el proyecto consumidor para su propio domin
 Cuando una herramienta falla, hay dos formas de comunicarlo: un error de protocolo
 JSON-RPC (que rompe la petición a nivel de transporte) o un resultado de herramienta con
 `isError: true` (que el modelo recibe como una respuesta normal, aunque sin éxito, y
-puede leer y ante la que puede reaccionar). ``MCPToolError`` es el segundo camino:
+puede leer y ante la que puede reaccionar). `MCPToolError` es el segundo camino:
 
 ```swift
 public enum MCPToolError: Error, Sendable {
@@ -104,7 +104,7 @@ nombre de herramienta desconocido — eso indica un fallo del propio cliente (es
 llamando a una herramienta que nunca se registró), no una condición de dominio de la que
 el modelo pueda recuperarse cambiando sus argumentos.
 
-Los recursos (``MCPResource``) no tienen ese canal de error "suave": al no representar
+Los recursos (`MCPResource`) no tienen ese canal de error "suave": al no representar
 una acción sino contexto de solo lectura, un fallo al leerlos se lanza como `MCPError` y
 se reporta como un error JSON-RPC normal.
 
