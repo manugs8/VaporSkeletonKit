@@ -343,7 +343,13 @@ Crear rama → obtener `DATABASE_URL` → ejecutar migraciones → iniciar aplic
 ejecutar E2E → recopilar diagnósticos → eliminar rama. La limpieza debe ejecutarse
 incluso después de un fallo de los tests.
 
-La mecánica concreta de este ciclo de vida se realiza mediante pruebas E2E locales con utilidades integradas en TestSupport.
+**Estado actual del kit:** `VaporSkeletonKit` todavía no implementa este ciclo contra
+Neon. `withE2EServer` (`VaporSkeletonKitTesting`, ver
+[Testing y E2E](../Sources/VaporSkeletonKit/VaporSkeletonKit.docc/Articles/TestingYE2E.md))
+aporta hoy la variante más simple del mismo problema — aislamiento por ejecución — pero
+contra un Postgres local: `CREATE DATABASE`/`DROP DATABASE` por ejecución, no una rama de
+Neon. El ciclo de ramas de 9.1-9.3 es la arquitectura objetivo de este documento, pendiente
+de aportarla el kit.
 
 ## 9.4 Consideraciones del plan gratuito
 
