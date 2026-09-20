@@ -12,7 +12,7 @@ func configure(_ app: Application) throws {
             username: Environment.get("DATABASE_USERNAME") ?? "postgres",
             password: Environment.get("DATABASE_PASSWORD") ?? "postgres",
             database: Environment.get("DATABASE_NAME") ?? "postgres",
-            tlsDisabled: Environment.get("DATABASE_TLS") == "disable"
+            tlsDisabled: Environment.get("DATABASE_TLS") != "require"
         )),
         as: .psql
     )
