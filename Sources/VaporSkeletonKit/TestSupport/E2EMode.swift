@@ -2,24 +2,24 @@ import Vapor
 import Fluent
 import SQLKit
 
-/// Representa un casuística de estado predefinido que el entorno E2E requiere antes de lanzar una prueba.
-public protocol E2Escenery: Sendable {
+/// Representa una casuística de estado predefinida que el entorno E2E requiere antes de lanzar una prueba.
+public protocol E2EScenario: Sendable {
     func apply(req: Request) async throws
 }
 
 /// Define cómo el proyecto consumidor mapeará el identificador recibido (ej. "populated_dashboard")
 /// a sus casos de uso y dominios para preparar el escenario.
-public protocol SceneryFactoryProtocol: Sendable {
-    func make(scenery: String) throws -> any E2Escenery
+public protocol E2EScenarioFactory: Sendable {
+    func make(scenario: String) throws -> any E2EScenario
 }
 
 /// Request de preparación de estado recibida en el endpoint de E2E.
 public struct PrepareScenarioRequest: Content, Sendable {
-    public let scenery: String
+    public let scenario: String
     public let reset: Bool
-    
-    public init(scenery: String, reset: Bool) {
-        self.scenery = scenery
+
+    public init(scenario: String, reset: Bool) {
+        self.scenario = scenario
         self.reset = reset
     }
 }
@@ -52,7 +52,7 @@ public enum E2EModeError: Error, CustomStringConvertible, Sendable {
 /// un despliegue real.
 ///
 /// - Throws: ``E2EModeError/refusedInProduction`` si `app.environment == .production`.
-public func registerE2EMode(_ app: Application, sceneryFactory: any SceneryFactoryProtocol) throws {
+public func registerE2EMode(_ app: Application, scenarioFactory: any E2EScenarioFactory) throws {
     guard app.environment != .production else {
         throw E2EModeError.refusedInProduction
     }
@@ -86,7 +86,7 @@ public func registerE2EMode(_ app: Application, sceneryFactory: any SceneryFacto
             }
         }
         
-        let scenario = try sceneryFactory.make(scenery: body.scenery)
+        let scenario = try scenarioFactory.make(scenario: body.scenario)
         try await scenario.apply(req: req)
         
         return .ok

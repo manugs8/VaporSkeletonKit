@@ -136,9 +136,9 @@ Es especialmente útil para habilitar la concurrencia verdadera (como la que exi
 
 ## Inyección de Fallos y modo E2E
 
-Para simular fallos 500, timeouts o comportamientos impredecibles durante tests E2E y de Integración, el Kit incluye un middleware `TestFaultInjectionMiddleware` que permite *armar* temporalmente un error en una ruta concreta, junto con el endpoint `POST /e2e/prepare` para preparar/resetear estado de base de datos entre tests (ver ``E2Escenery``/``SceneryFactoryProtocol``). Ambos se activan a la vez con ``registerE2EMode(_:sceneryFactory:)`` — no hay ninguna variable de entorno que los active por su cuenta.
+Para simular fallos 500, timeouts o comportamientos impredecibles durante tests E2E y de Integración, el Kit incluye un middleware `TestFaultInjectionMiddleware` que permite *armar* temporalmente un error en una ruta concreta, junto con el endpoint `POST /e2e/prepare` para preparar/resetear estado de base de datos entre tests (ver ``E2EScenario``/``E2EScenarioFactory``). Ambos se activan a la vez con ``registerE2EMode(_:scenarioFactory:)`` — no hay ninguna variable de entorno que los active por su cuenta.
 
-``registerE2EMode(_:sceneryFactory:)`` **se niega a registrar nada** —lanza
+``registerE2EMode(_:scenarioFactory:)`` **se niega a registrar nada** —lanza
 ``E2EModeError/refusedInProduction`` en vez de montar ninguna ruta— si
 `app.environment == .production`. Es la única barrera real contra una activación
 accidental: qué condición decide *cuándo* llamar a esta función (una variable de
@@ -154,7 +154,7 @@ estas rutas abiertas:
 func configure(_ app: Application) async throws {
     // ...
     if Environment.get("E2E_MODE") == "true" {
-        try registerE2EMode(app, sceneryFactory: MySceneryFactory())
+        try registerE2EMode(app, scenarioFactory: MyScenarioFactory())
     }
 }
 ```
