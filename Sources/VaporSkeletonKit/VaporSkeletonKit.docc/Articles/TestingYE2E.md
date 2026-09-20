@@ -94,9 +94,12 @@ let (content, isError) = try await client.callTool(name: "list_items")
 
 Ambos comparten el mismo patrón que `PostgresEnvironmentConfig` y
 `BearerAuthEnvironmentConfig`: `authToken` es un closure que produce el bearer token (o
-`nil` para no enviar ninguno), llamado en cada petición — ninguno de los dos tipos
-asume qué paquete de autenticación usa el proyecto consumidor, ni cachea el token entre
-llamadas.
+`nil` para no enviar ninguno) — ninguno de los dos tipos asume qué paquete de
+autenticación usa el proyecto consumidor. El momento en que se llama sí difiere:
+`E2EHTTPClient` invoca `authToken` en cada petición individual (nunca cachea el
+resultado), mientras que `E2EMCPClient.connect(...)` lo resuelve una única vez al
+conectar y reutiliza ese mismo token para toda la sesión — coherente con que una
+conexión MCP es de larga duración, a diferencia de una petición REST suelta.
 
 ## `withRunningServer`: probando este kit consigo mismo
 

@@ -220,8 +220,10 @@ let item = try await client.post("items", json: NewItem(name: "Widget"), as: Ite
 ```
 
 `E2EMCPClient.connect(...)` construye un `MCP.Client` real sobre `HTTPClientTransport`,
-de la misma forma en que lo haría un agente externo, adjuntando un bearer token de la
-misma manera:
+de la misma forma en que lo haría un agente externo. A diferencia de `E2EHTTPClient`,
+`authToken` se resuelve una única vez aquí en `connect(...)` y el token resultante se
+adjunta a cada petición de esa conexión — no se vuelve a llamar a `authToken` por
+petición:
 
 ```swift
 import VaporSkeletonKitE2ESupport
