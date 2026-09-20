@@ -60,9 +60,10 @@ enum MCPToolDispatch {
     /// lanzado (u otro error) en un resultado con `isError: true` en lugar de un fallo
     /// a nivel de transporte.
     ///
-    /// Un nombre de herramienta desconocido es el único caso que se reporta como un
-    /// error de protocolo JSON-RPC (`invalidParams`), ya que eso indica un fallo del
-    /// cliente y no una condición de dominio recuperable.
+    /// Un nombre de herramienta desconocido se reporta por el mismo canal — como
+    /// ``MCPToolError/invalidArgument(_:)`` — en vez de como un error de protocolo
+    /// JSON-RPC. A diferencia de `resources/read` (ver ``read(_:resources:)``), esta
+    /// función nunca lanza: siempre devuelve un `CallTool.Result`.
     static func call(_ params: CallTool.Parameters, tools: [any MCPTool]) async -> CallTool.Result {
         guard let tool = tools.first(where: { $0.name == params.name }) else {
             return MCPToolError.invalidArgument("Unknown tool: \(params.name)").callToolResult

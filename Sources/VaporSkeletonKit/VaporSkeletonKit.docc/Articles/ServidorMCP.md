@@ -99,14 +99,16 @@ var callToolResult: CallTool.Result {
 }
 ```
 
-El único caso que **sí** se reporta como error de protocolo (`invalidParams`) es un
-nombre de herramienta desconocido — eso indica un fallo del propio cliente (está
-llamando a una herramienta que nunca se registró), no una condición de dominio de la que
-el modelo pueda recuperarse cambiando sus argumentos.
+Un nombre de herramienta desconocido pasa por el mismo canal "suave" — se reporta como
+`invalidArgument`, no como un error de protocolo — porque el modelo llamador puede
+razonablemente ver el mensaje y reaccionar (p. ej. volver a llamar a `tools/list` y
+reintentar con un nombre válido) en vez de que la petición se rompa a nivel de
+transporte. `MCPToolDispatch.call(_:tools:)` nunca lanza: siempre produce un
+`CallTool.Result`.
 
 Los recursos (``MCPResource``) no tienen ese canal de error "suave": al no representar
-una acción sino contexto de solo lectura, un fallo al leerlos se lanza como `MCPError` y
-se reporta como un error JSON-RPC normal.
+una acción sino contexto de solo lectura, un fallo al leerlos (incluida una URI
+desconocida) se lanza como `MCPError` y se reporta como un error JSON-RPC normal.
 
 ## Autenticación: una capa por encima, no dentro de MCP
 
