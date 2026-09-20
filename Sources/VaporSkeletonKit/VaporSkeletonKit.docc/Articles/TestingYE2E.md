@@ -118,11 +118,32 @@ Mientras que `withTestApp` prueba la integración en-memoria, y los tests E2E pu
 Esta función aprovisiona un entorno idéntico al de `withTestApp` (levantando una instancia de Vapor completa y migrando base de datos de manera aislada) combinándolo con las garantías de la capa de transporte real. Se enciende un NIO Server efímero sobre el "Port 0" provisto por el sistema operativo, permitiendo probar la aplicación usando TCP HTTP puro sin peligro de colisión de puertos:
 
 ```swift
+// Credenciales con permiso de CREATE/DROP DATABASE — igual que makePostgresConfiguration,
+// withE2EServer nunca lee Environment por sí misma; el llamador las resuelve.
+let masterConfig = PostgresEnvironmentConfig(
+    databaseURL: Environment.get("DATABASE_URL"),
+    host: Environment.get("DATABASE_HOST"),
+    port: Environment.get("DATABASE_PORT").flatMap(Int.init),
+    username: Environment.get("DATABASE_USERNAME"),
+    password: Environment.get("DATABASE_PASSWORD"),
+    database: Environment.get("DATABASE_NAME"),
+    tlsDisabled: Environment.get("DATABASE_TLS") == "disable"
+)
+
 try await withE2EServer(
+    masterConfig: masterConfig,
     configure: { app, dynamicDB in
-        // Aprovisiona base de datos dinámicamente inyectada (UUID)
-        var config = PostgresEnvironmentConfig(...) // Leer desde ambiente base
-        config.database = dynamicDB                 // 🚀 Aislamiento absoluto concurrente
+        // PostgresEnvironmentConfig es inmutable — reconstruye a partir de masterConfig
+        // con `database: dynamicDB` en vez de mutarlo.
+        let config = PostgresEnvironmentConfig(
+            databaseURL: masterConfig.databaseURL,
+            host: masterConfig.host,
+            port: masterConfig.port,
+            username: masterConfig.username,
+            password: masterConfig.password,
+            database: dynamicDB,                 // 🚀 Aislamiento absoluto concurrente
+            tlsDisabled: masterConfig.tlsDisabled
+        )
         app.databases.use(try makePostgresConfiguration(from: config), as: .psql)
         try configureRoutes(app)
     }
@@ -131,6 +152,8 @@ try await withE2EServer(
     #expect(response.status == 200)
 }
 ```
+
+(Versión completa, compilada y ejercitada de verdad en cada `swift test`: `WithE2EServerTests` en este mismo repo.)
 
 Es especialmente útil para habilitar la concurrencia verdadera (como la que exige el framework `Swift Testing`) de tests funcionales E2E sin que estos se pisen las bases de datos ni arrojen errores de `Port 8080 is already in use`. El bloque subyacente interactúa como *Root* frente a Postgres creando una **base de datos temporal aleatoria** (vía UUID, de ahí el parámetro delegado `dynamicDB`) y se ocupa posteriormente de ejecutar `DROP DATABASE` al terminar el hilo, incluso si surge un crash.
 
