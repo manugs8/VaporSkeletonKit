@@ -19,6 +19,17 @@ public func withE2EServer(
     // 1. Levantamos NUESTRO SERVER pasándole explícitamente el dynamicDBName
     let e2eApp = try await Application.make(.testing)
 
+    
+    // 0. (OPCIONAL) Forzamos lectura manual de archivos no estándar de Vapor (.env.local)
+    let pool = NIOThreadPool(numberOfThreads: 1)
+    pool.start()
+    let fileio = NonBlockingFileIO(threadPool: pool)
+    
+    await DotEnvFile.load(path: ".env.local", fileio: fileio, logger: Logger(label: "env"))
+    await DotEnvFile.load(path: ".env", fileio: fileio, logger: Logger(label: "env"))
+    try await pool.shutdownGracefully()
+
+    
     // 2. Configuramos credenciales máster
     let masterConfig = PostgresEnvironmentConfig(
         databaseURL: Environment.get("DATABASE_URL"),
