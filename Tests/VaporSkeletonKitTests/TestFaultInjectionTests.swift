@@ -3,7 +3,7 @@ import Vapor
 import VaporTesting
 @testable import VaporSkeletonKit
 
-/// Tests para `TestFaultInjectionMiddleware` (Ver ADR 0011).
+/// Tests para `TestFaultInjectionMiddleware`.
 @Suite(.serialized)
 struct TestFaultInjectionTests {
     @Test("An armed fault forces the next matching request's status, then reverts")
