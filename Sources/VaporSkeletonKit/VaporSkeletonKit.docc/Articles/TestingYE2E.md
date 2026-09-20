@@ -132,12 +132,32 @@ try await withE2EServer(
 }
 ```
 
-Es especialmente útil para habilitar la concurrencia verdadera (como la que exige el framework `Swift Testing`) de tests funcionales E2E sin que estos se pisen las bases de datos ni arrojen errores de `Port 8080 is already in use`. El bloque subyacente interactúa como *Root* frente a Postgres creando una **base de datos temporal aleatoria** (vía UUID, de ahí el parámetro delegado `dynamicDB`) y se ocupa posteriormente de ejecutar `DROP DATABASE` al terminar el hilo, incluso si surge un crash. Esto previene eficazmente *race conditions* a nivel global (`getenv`). Además forzará internamente el flag `E2E_MODE=true` para habilitar middlewares de inyección.
-## Inyección de Fallos
+Es especialmente útil para habilitar la concurrencia verdadera (como la que exige el framework `Swift Testing`) de tests funcionales E2E sin que estos se pisen las bases de datos ni arrojen errores de `Port 8080 is already in use`. El bloque subyacente interactúa como *Root* frente a Postgres creando una **base de datos temporal aleatoria** (vía UUID, de ahí el parámetro delegado `dynamicDB`) y se ocupa posteriormente de ejecutar `DROP DATABASE` al terminar el hilo, incluso si surge un crash.
 
-Para simular fallos 500, timeouts o comportamientos impredecibles durante tests E2E y de Integración, el Kit incluye un middleware `TestFaultInjectionMiddleware` que permite *armar* temporalmente un error en una ruta concreta. 
+## Inyección de Fallos y modo E2E
 
-El middleware es **completamente inerte en Producción**. Sólo funciona si la aplicación arranca con la variable de entorno `TEST_FAULT_INJECTION_ENABLED=true` y su registro se habilita mediante `registerTestFaultInjection(app)` durante el `configure`. 
+Para simular fallos 500, timeouts o comportamientos impredecibles durante tests E2E y de Integración, el Kit incluye un middleware `TestFaultInjectionMiddleware` que permite *armar* temporalmente un error en una ruta concreta, junto con el endpoint `POST /e2e/prepare` para preparar/resetear estado de base de datos entre tests (ver ``E2Escenery``/``SceneryFactoryProtocol``). Ambos se activan a la vez con ``registerE2EMode(_:sceneryFactory:)`` — no hay ninguna variable de entorno que los active por su cuenta.
+
+``registerE2EMode(_:sceneryFactory:)`` **se niega a registrar nada** —lanza
+``E2EModeError/refusedInProduction`` en vez de montar ninguna ruta— si
+`app.environment == .production`. Es la única barrera real contra una activación
+accidental: qué condición decide *cuándo* llamar a esta función (una variable de
+entorno propia del proyecto, un flag de build...) sigue siendo responsabilidad del
+proyecto consumidor, pero un error en esa condición ya no puede exponer
+`/e2e/prepare` (que puede truncar todas las tablas del schema) ni `/_test/fault` en
+un despliegue real — el error de configuración se convierte en un fallo de arranque
+explícito, capturado por ``runApp(configure:)`` igual que cualquier otro error de
+`configure(_:)` (ver <doc:ArranqueDeLaApp>), en lugar de un servidor de producción con
+estas rutas abiertas:
+
+```swift
+func configure(_ app: Application) async throws {
+    // ...
+    if Environment.get("E2E_MODE") == "true" {
+        try registerE2EMode(app, sceneryFactory: MySceneryFactory())
+    }
+}
+```
 
 Cuando está habilitado, los clientes E2E como `E2EHTTPClient` ganan la habilidad de preparar un fallo para que cualquier proceso (como una app iOS en tests de sistema) reciba un error al consumir un endpoint:
 
