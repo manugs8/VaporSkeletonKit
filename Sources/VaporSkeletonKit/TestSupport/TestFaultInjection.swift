@@ -26,7 +26,7 @@ actor FaultInjectionStore {
     }
 }
 
-/// Middleware para inyectar fallos en los resposnes durante tests.
+/// Middleware para inyectar fallos en las respuestas durante tests.
 struct TestFaultInjectionMiddleware: AsyncMiddleware {
     static let controlPath = "/_test/fault"
 
