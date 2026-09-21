@@ -281,6 +281,10 @@ let response = try await client.get("items", authenticated: false) // sin cabece
 let item = try await client.post("items", json: NewItem(name: "Widget"), as: Item.self)
 ```
 
+Las sobrecargas que decodifican (`post(json:as:)`, `get(as:)`) aceptan cualquier status
+de éxito (`200..<300`), no solo `200` — incluido `201 Created`, el caso canónico de un
+`POST` de creación.
+
 `path` se trata siempre como un componente de ruta literal — `"items?filter=x"` no
 funciona como query string, ya que `?`/`&`/`=` se escapan como caracteres de ruta
 normales. Para eso está `query: [URLQueryItem]`, disponible en `get`/`send` (y en la

@@ -178,7 +178,9 @@ public struct E2EHTTPClient: Sendable {
     }
 
     /// Envía un `POST` con un cuerpo codificado en JSON y decodifica una respuesta
-    /// JSON, lanzando ``E2EHTTPError`` si el servidor no respondió `200`.
+    /// JSON, lanzando ``E2EHTTPError`` si el servidor no respondió con un status de
+    /// éxito (`200..<300`) — incluido `201 Created`, el caso canónico de un `POST` de
+    /// creación.
     public func post<Body: Encodable, Decoded: Decodable>(
         _ path: String,
         json: Body,
@@ -186,18 +188,20 @@ public struct E2EHTTPClient: Sendable {
         authorization: Authorization = .default
     ) async throws -> Decoded {
         let response = try await post(path, json: try JSONEncoder.e2e.encode(json), authorization: authorization)
-        guard response.status == 200 else {
+        guard (200..<300).contains(response.status) else {
             throw E2EHTTPError.unexpectedStatus(response.status, body: String(decoding: response.body, as: UTF8.self))
         }
         return try JSONDecoder.e2e.decode(Decoded.self, from: response.body)
     }
 
+    /// Envía un `GET` y decodifica una respuesta JSON, lanzando ``E2EHTTPError`` si el
+    /// servidor no respondió con un status de éxito (`200..<300`).
     public func get<Decoded: Decodable>(
         _ path: String, query: [URLQueryItem] = [], as: Decoded.Type,
         authorization: Authorization = .default
     ) async throws -> Decoded {
         let response = try await get(path, query: query, authorization: authorization)
-        guard response.status == 200 else {
+        guard (200..<300).contains(response.status) else {
             throw E2EHTTPError.unexpectedStatus(response.status, body: String(decoding: response.body, as: UTF8.self))
         }
         return try JSONDecoder.e2e.decode(Decoded.self, from: response.body)

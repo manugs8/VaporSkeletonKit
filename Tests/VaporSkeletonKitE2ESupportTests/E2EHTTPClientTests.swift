@@ -112,6 +112,24 @@ struct E2EHTTPClientTests {
         }
     }
 
+    @Test("post(json:as:) decodes a 201 Created response, not just 200")
+    func postAsAccepts201() async throws {
+        try await withRunningServer(port: 18103, mount: mountCreatedRoute) { baseURL in
+            let client = E2EHTTPClient(baseURL: baseURL)
+            let created = try await client.post("items", json: Message(text: "hi"), as: Message.self)
+            #expect(created == Message(text: "hi"))
+        }
+    }
+
+    @Test("get(as:) decodes any 2xx response, not just 200")
+    func getAsAccepts2xx() async throws {
+        try await withRunningServer(port: 18104, mount: mountPartialContentRoute) { baseURL in
+            let client = E2EHTTPClient(baseURL: baseURL)
+            let decoded = try await client.get("partial", as: Message.self)
+            #expect(decoded == Message(text: "partial"))
+        }
+    }
+
     @Test("get(query:) attaches query items as a real query string, not mangled into the path")
     func queryStringIsAttachedCorrectly() async throws {
         try await withRunningServer(port: 18101, mount: mountEchoQueryRoute) { baseURL in
@@ -183,6 +201,23 @@ private func mountCustomHeaderRoute(_ app: Application) throws {
 private func mountEchoContentTypeRoute(_ app: Application) throws {
     app.on(.POST, "echo-content-type", body: .collect) { req -> String in
         req.headers.first(name: .contentType) ?? "none"
+    }
+}
+
+private func mountCreatedRoute(_ app: Application) throws {
+    app.on(.POST, "items", body: .collect) { req -> Response in
+        let message = try req.content.decode(Message.self)
+        let response = Response(status: .created)
+        try response.content.encode(message)
+        return response
+    }
+}
+
+private func mountPartialContentRoute(_ app: Application) throws {
+    app.get("partial") { _ -> Response in
+        let response = Response(status: .partialContent)
+        try response.content.encode(Message(text: "partial"))
+        return response
     }
 }
 

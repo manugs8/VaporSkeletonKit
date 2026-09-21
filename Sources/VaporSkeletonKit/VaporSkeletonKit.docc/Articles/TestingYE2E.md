@@ -84,6 +84,11 @@ el servidor rechaza correctamente un `Content-Type` incompatible en vez de inten
 decodificarlo. `put`/`put(encoding:)` existen junto a los `post` ya vistos, para
 ejercitar endpoints `PUT`.
 
+`post(json:as:)`/`get(as:)` (las sobrecargas que decodifican directamente a un tipo)
+aceptan cualquier status `200..<300`, no solo `200` — así `post(json:as:)` sirve tal
+cual contra un endpoint de creación que responde `201 Created`, sin tener que caer a
+`post(json:)` + decodificar el cuerpo a mano.
+
 `get`/`send` (y la sobrecarga de `get` que decodifica) aceptan `query: [URLQueryItem]`
 para paginación/filtros. `path` se trata siempre como un componente de ruta literal —
 `baseURL.appendingPathComponent(path)` escapa `?`/`&`/`=` como caracteres normales de
