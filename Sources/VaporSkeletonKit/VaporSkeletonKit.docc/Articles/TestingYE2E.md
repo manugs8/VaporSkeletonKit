@@ -192,3 +192,8 @@ let client = E2EHTTPClient()
 // Hacemos que la siguiente llamada nativa a GET /owners sea un 500
 try await client.armFault(method: "GET", path: "/owners", status: 500)
 ```
+
+`/_test/fault` valida lo que recibe: `status` debe estar en `100...599` y
+`delayMilliseconds` en `0...30000` (30 segundos) — un valor fuera de rango responde
+`400 Bad Request` sin armar nada, en vez de aceptar un status HTTP inválido o dejar que
+un test arme un delay desmedido que cuelgue la suite entera.
