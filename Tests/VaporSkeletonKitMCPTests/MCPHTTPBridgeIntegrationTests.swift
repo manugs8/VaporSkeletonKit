@@ -167,4 +167,40 @@ struct MCPHTTPBridgeIntegrationTests {
 
         try await app.asyncShutdown()
     }
+
+    @Test("Refuses to mount when two tools share the same name")
+    func rejectsDuplicateToolNames() async throws {
+        let app = try await Application.make(.testing)
+        defer { Task { try? await app.asyncShutdown() } }
+
+        #expect(throws: MCPServerMountError.duplicateToolName("echo")) {
+            try mountMCPServer(
+                app, name: "TestServer", version: "1.0", instructions: "", tools: [EchoTool(), EchoTool()]
+            )
+        }
+    }
+
+    @Test("Refuses to mount when two resources share the same uri")
+    func rejectsDuplicateResourceURIs() async throws {
+        let app = try await Application.make(.testing)
+        defer { Task { try? await app.asyncShutdown() } }
+
+        #expect(throws: MCPServerMountError.duplicateResourceURI("static://greeting")) {
+            try mountMCPServer(
+                app, name: "TestServer", version: "1.0", instructions: "", tools: [],
+                resources: [StaticResource(), StaticResource()]
+            )
+        }
+    }
+}
+
+private struct StaticResource: MCPResource {
+    var uri: String { "static://greeting" }
+    var name: String { "greeting" }
+    var resourceDescription: String? { "A static greeting." }
+    var mimeType: String? { "text/plain" }
+
+    func read() async throws -> [Resource.Content] {
+        [.text("hello", uri: uri, mimeType: mimeType)]
+    }
 }
