@@ -235,3 +235,37 @@ try await client.armFault(method: "GET", path: "/owners", status: 500)
 `400 Bad Request` sin armar nada, en vez de aceptar un status HTTP inválido o dejar que
 un test arme un delay desmedido que cuelgue la suite entera. Un cuerpo que no se puede
 decodificar (p. ej. sin `status`) también responde `400`.
+
+### Cuerpo de fallo personalizado
+
+Por defecto, un fallo consumido responde con la `FaultBody` fija del Kit
+(`{"error": "test_fault_injected", "status": <status>}`). Eso sirve para comprobar "esta
+llamada ahora devuelve 500", pero no para verificar que el propio manejo de errores del
+proyecto consumidor produce su forma real — p. ej. el `{"error": true, "reason": "..."}`
+de un `AbortError` de Vapor, o cualquier otro `ErrorResponse` específico del proyecto —
+porque `FaultBody` se devuelve *antes* de que `ErrorMiddleware` (o el resto del stack de
+la app) lleguen a ejecutarse (`TestFaultInjectionMiddleware` está instalado en
+`.beginning`).
+
+`armFault` acepta un `body` (y, opcionalmente, `headers`) para sobreescribir ese cuerpo
+fijo por uno propio:
+
+```swift
+let client = E2EHTTPClient()
+
+// Bytes crudos:
+try await client.armFault(
+    method: "GET", path: "/owners", status: 500,
+    body: Data(#"{"error":true,"reason":"Database connection lost"}"#.utf8),
+    headers: ["X-Fault-Reason": "db-down"]
+)
+
+// O, si el cuerpo es un `Encodable`, `armFault(encoding:)` lo serializa a JSON:
+try await client.armFault(method: "GET", path: "/owners", status: 500, encoding: MyErrorBody(...))
+```
+
+La respuesta faulted añade `Content-Type: application/json` por defecto cuando hay
+`body` — incluir `Content-Type` en `headers` lo sobreescribe (p. ej. si el contrato real
+del consumidor no es JSON). `body` no puede superar 64 KiB (`TestFaultInjectionMiddleware.maxBodyBytes`);
+por encima de eso, `/_test/fault` responde `400 Bad Request` sin armar nada, igual que un
+`delayMilliseconds` desmedido.

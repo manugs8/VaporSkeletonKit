@@ -6,6 +6,18 @@ Todos los cambios notables de este paquete se documentan aquí. El formato sigue
 
 ## [Sin publicar]
 
+### Añadido
+
+- `POST /_test/fault` (y `E2EHTTPClient.armFault`) aceptan un `body` (y opcionalmente
+  `headers`) para sobreescribir la `FaultBody` fija que `TestFaultInjectionMiddleware`
+  devolvía siempre al consumir un fallo armado. Permite que un test verifique el
+  contrato de error real de su propia app (p. ej. un `AbortError` de Vapor) en vez de
+  aceptar la forma fija de `FaultBody`, o de necesitar un fallo genuino (una base de
+  datos inalcanzable, Docker...) solo para ver esa forma. `nil` conserva el
+  comportamiento previo. `body` está acotado a 64 KiB
+  (`TestFaultInjectionMiddleware.maxBodyBytes`), igual que `delayMilliseconds` ya estaba
+  acotado a 30 segundos.
+
 ## [2.0.0] - 2026-09-21
 
 ### Cambiado
