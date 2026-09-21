@@ -33,7 +33,7 @@ private func swaggerUIHandler(docsTitle: String) -> Response {
     <!DOCTYPE html>
     <html>
     <head>
-        <title>\(docsTitle)</title>
+        <title>\(htmlEscaped(docsTitle))</title>
         <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
     </head>
     <body>
@@ -51,4 +51,23 @@ private func swaggerUIHandler(docsTitle: String) -> Response {
     </html>
     """
     return Response(status: .ok, headers: ["content-type": "text/html; charset=utf-8"], body: .init(string: html))
+}
+
+/// Escapa los caracteres con significado especial en HTML para que `text` pueda
+/// interpolarse en el cuerpo de una página sin que un `docsTitle` con `<`, `>`, `&`
+/// o comillas rompa la estructura del documento o inyecte markup/JS.
+private func htmlEscaped(_ text: String) -> String {
+    var escaped = ""
+    escaped.reserveCapacity(text.count)
+    for character in text {
+        switch character {
+        case "&": escaped += "&amp;"
+        case "<": escaped += "&lt;"
+        case ">": escaped += "&gt;"
+        case "\"": escaped += "&quot;"
+        case "'": escaped += "&#39;"
+        default: escaped.append(character)
+        }
+    }
+    return escaped
 }
