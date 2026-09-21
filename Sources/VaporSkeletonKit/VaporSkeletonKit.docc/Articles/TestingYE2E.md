@@ -36,7 +36,10 @@ func withMigratedApp(_ test: (Application) async throws -> Void) async throws {
 ejecute `Application.make(.testing)` — por ejemplo, el flag de un paquete de
 autenticación para desactivarla en tests. Está vacío por defecto porque esta función no
 asume ningún paquete de autenticación en concreto, el mismo principio que
-``makePostgresConfiguration(from:)`` (ver <doc:ConfiguracionPostgres>).
+``makePostgresConfiguration(from:)`` (ver <doc:ConfiguracionPostgres>). Cada variable se
+restaura a su valor previo (o se elimina, si no existía) al terminar el test — incluso
+si lanza —, así que no deja contaminado el proceso para los tests que se ejecuten
+después en él.
 
 `sendMCP(_:_:path:)` complementa a `withTestApp` para probar el servidor MCP montado
 sobre esa misma `Application` de test, enviando una petición JSON-RPC tipada y
