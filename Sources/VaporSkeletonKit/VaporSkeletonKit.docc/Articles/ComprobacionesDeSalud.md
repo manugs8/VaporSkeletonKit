@@ -55,6 +55,15 @@ app.healthChecker = StubHealthChecker(result: HealthStatus(isHealthy: false, mes
 esto: que la ruta depende solo del protocolo `HealthChecking`, no de una comprobación de
 base de datos concreta.
 
+## Sin ninguna base de datos configurada, reporta 503 — nunca revienta el proceso
+
+`req.db`/`app.db` hacen `fatalError` si no hay ninguna base de datos registrada en
+`app.databases` (Fluent exige un id por defecto para resolverlos). Ambas superficies
+comprueban `app.databases.ids().isEmpty` antes de tocar `req.db`/`app.db`, y devuelven
+un `HealthStatus` no sano en vez de propagar ese crash — irónico que fuera al revés en
+un endpoint cuyo propósito es precisamente diagnosticar fallos de infraestructura sin
+caerse él mismo.
+
 ## Por qué `/health` está escrita a mano
 
 El resto de la superficie de API de un proyecto consumidor normalmente se genera desde

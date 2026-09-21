@@ -24,7 +24,7 @@ tres equivalentes para MCP, que dependen de las primeras en vez de duplicarlas:
 |---|---|---|
 | `VaporSkeletonKit` | El target de la app, en producción | Vapor, Fluent, FluentPostgresDriver |
 | `VaporSkeletonKitTesting` | El target de tests de integración | Vapor, Fluent, VaporTesting |
-| `VaporSkeletonKitE2ESupport` | Targets de tests E2E / seed | Ninguna framework de servidor |
+| `VaporSkeletonKitE2ESupport` | Targets de tests E2E / seed | Ningún framework de servidor |
 | `VaporSkeletonKitMCP` | El target de la app, si exportas MCP | VaporSkeletonKit, Vapor, swift-sdk (MCP) |
 | `VaporSkeletonKitMCPTesting` | Tests de integración de MCP | VaporSkeletonKitTesting, MCP |
 | `VaporSkeletonKitMCPE2ESupport`| Tests E2E de MCP | VaporSkeletonKitE2ESupport, MCP |

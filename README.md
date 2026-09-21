@@ -145,6 +145,10 @@ que el modelo llamador pueda razonablemente ver y ante el que pueda reaccionar
 (`invalidArgument`, `notFound`, `database`, `internalError`) — se reportan como un
 resultado de herramienta con `isError: true`, no como un fallo a nivel de transporte.
 
+`mountMCPServer` lanza `MCPServerMountError` si dos `tools` comparten `name`, o dos
+`resources` comparten `uri` — sin esta comprobación, el despacho interno elegiría el
+primero en silencio y el resto quedarían inalcanzables sin ningún aviso.
+
 ## Modo E2E (rutas backdoor)
 
 `registerE2EMode(_:sceneryFactory:)` monta dos rutas de apoyo para suites E2E: inyección
@@ -266,7 +270,9 @@ sea seguro enlazarlo desde un target de seed determinista:
 ```
 
 `E2EEnvironment.baseURL` lee `E2E_BASE_URL`, con la dirección local por defecto de
-`swift run` como valor por defecto (`http://127.0.0.1:8080`).
+`swift run` como valor por defecto (`http://127.0.0.1:8080`). Si `E2E_BASE_URL` está
+definida pero no es una URL válida, falla rápido con un mensaje que indica el valor
+recibido, en vez de un crash silencioso o de caer en el valor por defecto.
 
 `E2EHTTPClient` es un cliente REST mínimo. Igual que `makePostgresConfiguration`, nunca
 asume un paquete de autenticación concreto: `authToken` es un closure que produce el
@@ -279,6 +285,21 @@ import VaporSkeletonKitE2ESupport
 let client = E2EHTTPClient(authToken: { try await myTokenSigner.validToken() })
 let response = try await client.get("items", authenticated: false) // sin cabecera Authorization
 let item = try await client.post("items", json: NewItem(name: "Widget"), as: Item.self)
+```
+
+Las sobrecargas que decodifican (`post(json:as:)`, `get(as:)`) aceptan cualquier status
+de éxito (`200..<300`), no solo `200` — incluido `201 Created`, el caso canónico de un
+`POST` de creación.
+
+`path` se trata siempre como un componente de ruta literal — `"items?filter=x"` no
+funciona como query string, ya que `?`/`&`/`=` se escapan como caracteres de ruta
+normales. Para eso está `query: [URLQueryItem]`, disponible en `get`/`send` (y en la
+sobrecarga que decodifica):
+
+```swift
+let response = try await client.get(
+    "items", query: [URLQueryItem(name: "filter", value: "active"), URLQueryItem(name: "page", value: "2")]
+)
 ```
 
 `E2EMCPClient.connect(...)` construye un `MCP.Client` real sobre `HTTPClientTransport`,

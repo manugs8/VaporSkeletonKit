@@ -68,6 +68,16 @@ public protocol MCPTool: Sendable {
 `GetHealthTool` (ver <doc:ComprobacionesDeSalud>) es el único `MCPTool` que trae este
 kit — todo lo demás lo implementa el proyecto consumidor para su propio dominio.
 
+## Nombres/URIs duplicados se rechazan al montar, no en silencio en cada petición
+
+`MCPToolDispatch.call(_:tools:)`/`.read(_:resources:)` resuelven la herramienta o
+recurso pedido con `first(where:)` — si dos `tools` compartieran el mismo `name` (o dos
+`resources` la misma `uri`), el segundo quedaría permanentemente inalcanzable sin
+ningún error visible, solo un comportamiento sorprendente en tiempo de ejecución.
+`mountMCPServer` valida esto una vez, al montar, y lanza `MCPServerMountError` de
+inmediato si encuentra un duplicado — un fallo de configuración temprano y explícito en
+lugar de uno silencioso que solo se manifestaría al llamar a la herramienta equivocada.
+
 ## `MCPToolError`: el canal de error que un modelo puede leer
 
 Cuando una herramienta falla, hay dos formas de comunicarlo: un error de protocolo

@@ -38,4 +38,47 @@ struct RunAppTests {
             try await runApp(app) { _ in throw BoomError() }
         }
     }
+
+    @Test("Shuts the Application down if execute() throws too, not just if configure() does")
+    func shutsDownWhenExecuteThrows() async throws {
+        actor ShutdownFlag {
+            private(set) var wasShutdown = false
+            func markShutdown() { wasShutdown = true }
+        }
+        struct ShutdownRecorder: LifecycleHandler {
+            let flag: ShutdownFlag
+            func shutdownAsync(_ application: Application) async {
+                await flag.markShutdown()
+            }
+        }
+
+        // Ocupa un puerto primero, para que el intento de bind dentro de execute()
+        // falle rápido y de forma determinista (dirección ya en uso), en vez de que
+        // execute() sirva tráfico real indefinidamente.
+        let blocker = try await Application.make(.testing)
+        blocker.http.server.configuration.port = 0
+        try await blocker.asyncBoot()
+        try blocker.server.start()
+
+        guard let port = blocker.http.server.shared.localAddress?.port else {
+            await blocker.server.shutdown()
+            try? await blocker.asyncShutdown()
+            Issue.record("No se pudo determinar el puerto local del bloqueador")
+            return
+        }
+
+        let app = try await Application.make(.testing)
+        app.http.server.configuration.port = port
+        let flag = ShutdownFlag()
+        app.lifecycle.use(ShutdownRecorder(flag: flag))
+
+        await #expect(throws: (any Error).self) {
+            try await runApp(app) { _ in }
+        }
+
+        #expect(await flag.wasShutdown)
+
+        await blocker.server.shutdown()
+        try? await blocker.asyncShutdown()
+    }
 }

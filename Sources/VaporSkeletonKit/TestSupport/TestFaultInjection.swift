@@ -26,9 +26,13 @@ actor FaultInjectionStore {
     }
 }
 
-/// Middleware para inyectar fallos en los resposnes durante tests.
+/// Middleware para inyectar fallos en las respuestas durante tests.
 struct TestFaultInjectionMiddleware: AsyncMiddleware {
     static let controlPath = "/_test/fault"
+
+    /// Tope superior para `delayMilliseconds` — un test que arma un fallo con un delay
+    /// desmedido (o negativo, por error) no debería poder colgar la suite entera.
+    static let maxDelayMilliseconds = 30_000
 
     struct ArmRequest: Content {
         let method: String
@@ -51,11 +55,20 @@ struct TestFaultInjectionMiddleware: AsyncMiddleware {
             switch request.method {
             case .POST:
                 let armRequest = try request.content.decode(ArmRequest.self)
+                guard (100...599).contains(armRequest.status) else {
+                    return Self.badRequest("status must be in 100...599, got \(armRequest.status).")
+                }
+                let delayMilliseconds = armRequest.delayMilliseconds ?? 0
+                guard (0...Self.maxDelayMilliseconds).contains(delayMilliseconds) else {
+                    return Self.badRequest(
+                        "delayMilliseconds must be in 0...\(Self.maxDelayMilliseconds), got \(delayMilliseconds)."
+                    )
+                }
                 await store.arm(
                     method: armRequest.method,
                     path: armRequest.path,
                     status: armRequest.status,
-                    delayMilliseconds: armRequest.delayMilliseconds ?? 0
+                    delayMilliseconds: delayMilliseconds
                 )
                 return Response(status: .ok)
             case .DELETE:
@@ -76,6 +89,12 @@ struct TestFaultInjectionMiddleware: AsyncMiddleware {
         }
 
         return try await next.respond(to: request)
+    }
+
+    private static func badRequest(_ reason: String) -> Response {
+        let response = Response(status: .badRequest)
+        try? response.content.encode(FaultBody(error: reason, status: 400))
+        return response
     }
 }
 

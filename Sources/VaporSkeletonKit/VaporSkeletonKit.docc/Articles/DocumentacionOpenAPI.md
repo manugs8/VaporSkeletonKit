@@ -47,6 +47,15 @@ y sustituir `swaggerUIDistVersion`, `swaggerUICSSIntegrity` y
 `swaggerUIBundleJSIntegrity` en `OpenAPIDocsRoutes.swift` por los nuevos valores —
 nunca solo el número de versión sin recalcular los hashes.
 
+## `docsTitle` se escapa como HTML
+
+`docsTitle` se interpola dentro del `<title>` de la página Swagger UI. Aunque en la
+práctica suele ser un literal fijo (`"MyProject API Docs"`), `registerOpenAPIDocs`
+lo trata como contenido no confiable y escapa `&`, `<`, `>` y comillas antes de
+interpolarlo — así, si algún día un proyecto consumidor lo deriva de configuración
+externa en vez de un literal, un valor con `<script>` u otro markup no puede alterar
+la estructura de la página ni inyectar JavaScript en ella.
+
 ## Lo que este kit no hace: generar código
 
 `VaporSkeletonKit` sirve el spec — no lo genera, ni genera tipos Swift a partir de él.

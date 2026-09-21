@@ -78,11 +78,30 @@ let item = try await client.post("items", json: NewItem(name: "Widget"), as: Ite
 
 `send`/`get`/`post`/`put` devuelven una `Response` con `status`, `body`, y también
 `headers` (nombres en minúsculas) — para afirmar sobre `WWW-Authenticate` en un `401`,
-o `Content-Type` en un `200`. `send(_:_:body:contentType:authorization:)` acepta un
+o `Content-Type` en un `200`. Si el servidor responde con dos cabeceras que solo
+difieren en mayúsculas/minúsculas, se queda con la última — nunca crashea por una
+colisión de claves al normalizar. `send(_:_:body:contentType:authorization:)` acepta un
 `contentType` explícito (`application/json` por defecto) — la única vía para probar que
 el servidor rechaza correctamente un `Content-Type` incompatible en vez de intentar
 decodificarlo. `put`/`put(encoding:)` existen junto a los `post` ya vistos, para
 ejercitar endpoints `PUT`.
+
+`post(json:as:)`/`get(as:)` (las sobrecargas que decodifican directamente a un tipo)
+aceptan cualquier status `200..<300`, no solo `200` — así `post(json:as:)` sirve tal
+cual contra un endpoint de creación que responde `201 Created`, sin tener que caer a
+`post(json:)` + decodificar el cuerpo a mano.
+
+`get`/`send` (y la sobrecarga de `get` que decodifica) aceptan `query: [URLQueryItem]`
+para paginación/filtros. `path` se trata siempre como un componente de ruta literal —
+`baseURL.appendingPathComponent(path)` escapa `?`/`&`/`=` como caracteres normales de
+ruta, así que un `path` como `"items?filter=x"` nunca llega como query string al
+servidor; hay que pasarlo por `query:`, que se adjunta vía `URLComponents`:
+
+```swift
+let response = try await client.get(
+    "items", query: [URLQueryItem(name: "filter", value: "active")]
+)
+```
 
 `E2EMCPClient` construye un `MCP.Client` real sobre `HTTPClientTransport` — un cliente
 MCP genuino, hablando HTTP/JSON-RPC real, exactamente como lo haría un agente externo:
@@ -192,3 +211,8 @@ let client = E2EHTTPClient()
 // Hacemos que la siguiente llamada nativa a GET /owners sea un 500
 try await client.armFault(method: "GET", path: "/owners", status: 500)
 ```
+
+`/_test/fault` valida lo que recibe: `status` debe estar en `100...599` y
+`delayMilliseconds` en `0...30000` (30 segundos) — un valor fuera de rango responde
+`400 Bad Request` sin armar nada, en vez de aceptar un status HTTP inválido o dejar que
+un test arme un delay desmedido que cuelgue la suite entera.

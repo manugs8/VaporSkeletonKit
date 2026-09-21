@@ -73,7 +73,13 @@ public struct E2EHTTPClient: Sendable {
     /// Envía una petición con un cuerpo arbitrario (o sin cuerpo) y un `Content-Type`
     /// explícito.
     ///
-    /// - Parameter contentType: Ignorado si `body` es `nil`. Por defecto
+    /// - Parameters:
+    ///   - query: Parámetros de query string, adjuntados vía `URLComponents` — nunca
+    ///     concatenados a mano en `path`. `path` se trata siempre como un componente de
+    ///     ruta literal (`appendingPathComponent` escapa `?`/`&`/`=` como caracteres de
+    ///     ruta normales), así que un `path` como `"items?filter=x"` no funciona como
+    ///     query string; usa este parámetro para eso.
+    ///   - contentType: Ignorado si `body` es `nil`. Por defecto
     ///   `application/json` — pásalo explícitamente para probar el rechazo de un
     ///   `Content-Type` incompatible (la única vía para mandar otra cosa, ya que las
     ///   demás sobrecargas de este cliente fijan `application/json` a propósito).
@@ -81,11 +87,12 @@ public struct E2EHTTPClient: Sendable {
     public func send(
         _ method: String,
         _ path: String,
+        query: [URLQueryItem] = [],
         body: Data? = nil,
         contentType: String = "application/json",
         authorization: Authorization = .default
     ) async throws -> Response {
-        var request = URLRequest(url: baseURL.appendingPathComponent(path))
+        var request = URLRequest(url: Self.url(baseURL: baseURL, path: path, query: query))
         request.httpMethod = method
         if let body {
             request.httpBody = body
@@ -106,17 +113,39 @@ public struct E2EHTTPClient: Sendable {
         guard let http = response as? HTTPURLResponse else {
             throw E2EHTTPError.unexpectedStatus(-1, body: String(decoding: data, as: UTF8.self))
         }
+        // uniquingKeysWith en vez de uniqueKeysWithValues: dos cabeceras que solo
+        // difieren en mayúsculas/minúsculas (p. ej. "X-Custom" y "x-custom") colapsan a
+        // la misma clave en minúsculas — uniqueKeysWithValues haría trap ante eso, en
+        // vez de responder con normalidad. Se queda con el último valor visto.
         let headers = Dictionary(
-            uniqueKeysWithValues: http.allHeaderFields.compactMap { key, value -> (String, String)? in
+            http.allHeaderFields.compactMap { key, value -> (String, String)? in
                 guard let name = key as? String, let stringValue = value as? String else { return nil }
                 return (name.lowercased(), stringValue)
-            }
+            },
+            uniquingKeysWith: { _, last in last }
         )
         return Response(status: http.statusCode, body: data, headers: headers)
     }
 
-    public func get(_ path: String, authorization: Authorization = .default) async throws -> Response {
-        try await send("GET", path, authorization: authorization)
+    /// Construye la URL final de una petición, adjuntando `query` como query string real
+    /// en vez de dejar que se confunda con el `path`. Si `URLComponents` no puede
+    /// interpretar la URL ya construida (no debería ocurrir partiendo de un `baseURL`
+    /// válido), degrada a la URL sin `query` en vez de crashear.
+    private static func url(baseURL: URL, path: String, query: [URLQueryItem]) -> URL {
+        let pathURL = baseURL.appendingPathComponent(path)
+        guard !query.isEmpty,
+              var components = URLComponents(url: pathURL, resolvingAgainstBaseURL: true)
+        else {
+            return pathURL
+        }
+        components.queryItems = query
+        return components.url ?? pathURL
+    }
+
+    public func get(
+        _ path: String, query: [URLQueryItem] = [], authorization: Authorization = .default
+    ) async throws -> Response {
+        try await send("GET", path, query: query, authorization: authorization)
     }
 
     /// Para endpoints sin cuerpo (p. ej. una acción `POST .../undo`).
@@ -154,7 +183,9 @@ public struct E2EHTTPClient: Sendable {
     }
 
     /// Envía un `POST` con un cuerpo codificado en JSON y decodifica una respuesta
-    /// JSON, lanzando ``E2EHTTPError`` si el servidor no respondió `200`.
+    /// JSON, lanzando ``E2EHTTPError`` si el servidor no respondió con un status de
+    /// éxito (`200..<300`) — incluido `201 Created`, el caso canónico de un `POST` de
+    /// creación.
     public func post<Body: Encodable, Decoded: Decodable>(
         _ path: String,
         json: Body,
@@ -162,17 +193,20 @@ public struct E2EHTTPClient: Sendable {
         authorization: Authorization = .default
     ) async throws -> Decoded {
         let response = try await post(path, json: try JSONEncoder.e2e.encode(json), authorization: authorization)
-        guard response.status == 200 else {
+        guard (200..<300).contains(response.status) else {
             throw E2EHTTPError.unexpectedStatus(response.status, body: String(decoding: response.body, as: UTF8.self))
         }
         return try JSONDecoder.e2e.decode(Decoded.self, from: response.body)
     }
 
+    /// Envía un `GET` y decodifica una respuesta JSON, lanzando ``E2EHTTPError`` si el
+    /// servidor no respondió con un status de éxito (`200..<300`).
     public func get<Decoded: Decodable>(
-        _ path: String, as: Decoded.Type, authorization: Authorization = .default
+        _ path: String, query: [URLQueryItem] = [], as: Decoded.Type,
+        authorization: Authorization = .default
     ) async throws -> Decoded {
-        let response = try await get(path, authorization: authorization)
-        guard response.status == 200 else {
+        let response = try await get(path, query: query, authorization: authorization)
+        guard (200..<300).contains(response.status) else {
             throw E2EHTTPError.unexpectedStatus(response.status, body: String(decoding: response.body, as: UTF8.self))
         }
         return try JSONDecoder.e2e.decode(Decoded.self, from: response.body)

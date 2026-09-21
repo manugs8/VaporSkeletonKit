@@ -91,6 +91,17 @@ struct E2EHTTPClientTests {
         }
     }
 
+    @Test("Doesn't crash when two response headers differ only by case")
+    func duplicateCaseInsensitiveHeadersDoNotCrash() async throws {
+        try await withRunningServer(port: 18101, mount: mountDuplicateCaseHeaderRoute) { baseURL in
+            let client = E2EHTTPClient(baseURL: baseURL)
+            let response = try await client.get("duplicate-header")
+            // No crashea; qué valor concreto "gana" entre dos cabeceras que solo
+            // difieren en mayúsculas/minúsculas no es lo que se está probando aquí.
+            #expect(response.headers["x-dup"] != nil)
+        }
+    }
+
     @Test("send(contentType:) overrides the default application/json Content-Type")
     func customContentType() async throws {
         try await withRunningServer(port: 18099, mount: mountEchoContentTypeRoute) { baseURL in
@@ -109,6 +120,46 @@ struct E2EHTTPClientTests {
             await #expect(throws: E2EHTTPError.self) {
                 _ = try await client.get("boom", as: Message.self, authorization: .none)
             }
+        }
+    }
+
+    @Test("post(json:as:) decodes a 201 Created response, not just 200")
+    func postAsAccepts201() async throws {
+        try await withRunningServer(port: 18103, mount: mountCreatedRoute) { baseURL in
+            let client = E2EHTTPClient(baseURL: baseURL)
+            let created = try await client.post("items", json: Message(text: "hi"), as: Message.self)
+            #expect(created == Message(text: "hi"))
+        }
+    }
+
+    @Test("get(as:) decodes any 2xx response, not just 200")
+    func getAsAccepts2xx() async throws {
+        try await withRunningServer(port: 18104, mount: mountPartialContentRoute) { baseURL in
+            let client = E2EHTTPClient(baseURL: baseURL)
+            let decoded = try await client.get("partial", as: Message.self)
+            #expect(decoded == Message(text: "partial"))
+        }
+    }
+
+    @Test("get(query:) attaches query items as a real query string, not mangled into the path")
+    func queryStringIsAttachedCorrectly() async throws {
+        try await withRunningServer(port: 18101, mount: mountEchoQueryRoute) { baseURL in
+            let client = E2EHTTPClient(baseURL: baseURL)
+            let response = try await client.get(
+                "echo-query", query: [URLQueryItem(name: "filter", value: "x"), URLQueryItem(name: "page", value: "2")]
+            )
+            #expect(String(decoding: response.body, as: UTF8.self) == "filter=x&page=2")
+        }
+    }
+
+    @Test("get(query:as:) round-trips query items through the decoding overload too")
+    func queryStringWithDecoding() async throws {
+        try await withRunningServer(port: 18102, mount: mountEchoQueryRoute) { baseURL in
+            let client = E2EHTTPClient(baseURL: baseURL)
+            let response = try await client.get(
+                "echo-query-json", query: [URLQueryItem(name: "q", value: "widgets")], as: Message.self
+            )
+            #expect(response == Message(text: "q=widgets"))
         }
     }
 }
@@ -158,8 +209,46 @@ private func mountCustomHeaderRoute(_ app: Application) throws {
     }
 }
 
+private func mountDuplicateCaseHeaderRoute(_ app: Application) throws {
+    app.get("duplicate-header") { _ -> Response in
+        let response = Response(status: .ok)
+        // Dos cabeceras que solo difieren en mayúsculas/minúsculas — HTTP las trata
+        // como el mismo nombre, pero llegan como entradas separadas a
+        // HTTPURLResponse.allHeaderFields en el cliente.
+        response.headers.add(name: "X-Dup", value: "first")
+        response.headers.add(name: "x-dup", value: "second")
+        return response
+    }
+}
+
 private func mountEchoContentTypeRoute(_ app: Application) throws {
     app.on(.POST, "echo-content-type", body: .collect) { req -> String in
         req.headers.first(name: .contentType) ?? "none"
+    }
+}
+
+private func mountCreatedRoute(_ app: Application) throws {
+    app.on(.POST, "items", body: .collect) { req -> Response in
+        let message = try req.content.decode(Message.self)
+        let response = Response(status: .created)
+        try response.content.encode(message)
+        return response
+    }
+}
+
+private func mountPartialContentRoute(_ app: Application) throws {
+    app.get("partial") { _ -> Response in
+        let response = Response(status: .partialContent)
+        try response.content.encode(Message(text: "partial"))
+        return response
+    }
+}
+
+private func mountEchoQueryRoute(_ app: Application) throws {
+    app.get("echo-query") { req -> String in
+        req.url.query ?? ""
+    }
+    app.get("echo-query-json") { req -> Message in
+        Message(text: req.url.query ?? "")
     }
 }

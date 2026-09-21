@@ -17,9 +17,10 @@ import Vapor
 /// }
 /// ```
 ///
-/// Si `configure` lanza un error, este se registra en el log y la `Application` se
-/// apaga antes de relanzarlo — el servidor nunca empieza a servir peticiones sobre una
-/// app a medio configurar.
+/// Si `configure` lanza un error, o si el propio servidor (`execute()`) falla una vez
+/// arrancado, el error se registra en el log y la `Application` se apaga antes de
+/// relanzarlo — nunca se queda sirviendo peticiones sobre una app a medio configurar,
+/// ni sin liberar sus recursos tras un fallo al servir.
 ///
 /// - Parameter configure: Configura la `Application` (base de datos, migraciones,
 ///   rutas, etc.) antes de que empiece a servir peticiones.
@@ -46,12 +47,12 @@ public func runApp(configure: (Application) async throws -> Void) async throws {
 func runApp(_ app: Application, configure: (Application) async throws -> Void) async throws {
     do {
         try await configure(app)
+        try await app.execute()
     } catch {
         app.logger.report(error: error)
         try? await app.asyncShutdown()
         throw error
     }
 
-    try await app.execute()
     try await app.asyncShutdown()
 }

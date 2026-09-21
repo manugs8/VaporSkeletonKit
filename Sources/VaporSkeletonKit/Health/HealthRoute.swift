@@ -15,7 +15,15 @@ import Vapor
 /// - Parameter app: La `Application` sobre la que registrar la ruta.
 public func registerHealthRoute(_ app: Application) {
     app.get("health") { req async throws -> Response in
-        let status = await req.application.healthChecker.check(on: req.db)
+        let status: HealthStatus
+        // req.db hace fatalError si no hay ninguna base de datos configurada (Fluent
+        // exige un id por defecto) — comprobar app.databases.ids() antes evita que un
+        // endpoint de diagnóstico tumbe el proceso entero en vez de reportar el problema.
+        if req.application.databases.ids().isEmpty {
+            status = HealthStatus(isHealthy: false, message: "No database configured.")
+        } else {
+            status = await req.application.healthChecker.check(on: req.db)
+        }
         let response = Response(status: status.isHealthy ? .ok : .serviceUnavailable)
         try response.content.encode(status)
         return response
