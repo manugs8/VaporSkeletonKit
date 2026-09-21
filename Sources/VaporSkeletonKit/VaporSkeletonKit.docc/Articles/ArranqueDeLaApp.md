@@ -28,9 +28,11 @@ enum Entrypoint {
 
 `runApp(configure:)` hace exactamente esos pasos por ti. Si `configure` lanza un error
 — una variable de entorno obligatoria que falta, una URL de base de datos con un
-formato inválido — el error se registra en el log **y la `Application` se apaga antes de
-relanzarlo**. El servidor nunca llega a aceptar tráfico sobre una app a medio
-configurar; falla rápido y de forma visible en los logs, en lugar de arrancar en un
+formato inválido — **o si el propio servidor falla al arrancar** (`execute()`, p. ej.
+un puerto ya ocupado), el error se registra en el log **y la `Application` se apaga
+antes de relanzarlo** en ambos casos. El servidor nunca llega a aceptar tráfico sobre
+una app a medio configurar, ni queda sirviendo con recursos sin liberar tras un fallo
+al arrancar; falla rápido y de forma visible en los logs, en lugar de arrancar en un
 estado roto.
 
 ## Por qué está partida en dos funciones
@@ -50,16 +52,22 @@ public func runApp(configure: (Application) async throws -> Void) async throws {
 func runApp(_ app: Application, configure: (Application) async throws -> Void) async throws {
     do {
         try await configure(app)
+        try await app.execute()
     } catch {
         app.logger.report(error: error)
         try? await app.asyncShutdown()
         throw error
     }
 
-    try await app.execute()
     try await app.asyncShutdown()
 }
 ```
+
+`configure` y `execute()` comparten el mismo `do`/`catch` a propósito: antes,
+`execute()` estaba fuera del bloque, así que un fallo al arrancar el servidor (p. ej. un
+puerto ya ocupado) se propagaba sin pasar por `asyncShutdown()` — justo lo que sí hacía
+el camino de error de `configure`. Un solo bloque para ambos evita que esa asimetría
+vuelva a colarse.
 
 La razón de la separación es puramente de testabilidad: `LoggingSystem.bootstrap(from:)`
 solo se puede invocar **una vez por proceso** — es una limitación del propio
