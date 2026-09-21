@@ -1,6 +1,6 @@
 # Comprobaciones de salud
 
-Cómo ``registerHealthRoute(_:)`` y ``GetHealthTool`` comparten exactamente la misma
+Cómo ``registerHealthRoute(_:)`` y `GetHealthTool` (`VaporSkeletonKitMCP`) comparten exactamente la misma
 comprobación, y por qué `/health` no se genera desde el spec OpenAPI.
 
 ## Un protocolo, dos formas de exponerlo
@@ -21,7 +21,7 @@ formas distintas, ambas leyendo `app.healthChecker`:
 
 - `GET /health` (``registerHealthRoute(_:)``), para que Render
   y las suites E2E y pruebas locales puedan consultarlo por HTTP normal.
-- ``GetHealthTool``, la herramienta MCP `get_health`, para que un agente conectado al
+- `GetHealthTool`, la herramienta MCP `get_health`, para que un agente conectado al
   servidor MCP pueda hacer la misma comprobación sin necesitar una segunda ruta.
 
 Ninguna de las dos duplica la lógica de comprobación — ambas llaman a

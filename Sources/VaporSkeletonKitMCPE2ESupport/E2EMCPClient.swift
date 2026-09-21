@@ -6,8 +6,10 @@ import VaporSkeletonKitE2ESupport
 /// MCP genuino que habla HTTP/JSON-RPC real con un servidor en ejecución, de la misma
 /// forma en que lo haría un agente externo, en lugar de manejar el servidor en proceso.
 public enum E2EMCPClient {
-    /// Conecta un `MCP.Client` nuevo, adjuntando `Authorization: Bearer <token>` desde
-    /// `authToken` en cada petición.
+    /// Conecta un `MCP.Client` nuevo, resolviendo `authToken` una única vez aquí y
+    /// adjuntando `Authorization: Bearer <token>` a cada petición saliente de esa
+    /// conexión — a diferencia de `E2EHTTPClient`, que llama a su `authToken` en cada
+    /// petición individual.
     ///
     /// - Parameters:
     ///   - baseURL: El servidor al que conectar. Por defecto, ``E2EEnvironment/baseURL``.

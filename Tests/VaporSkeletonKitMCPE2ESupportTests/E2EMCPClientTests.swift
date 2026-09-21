@@ -1,7 +1,6 @@
 import MCP
 import Testing
 import Vapor
-import VaporSkeletonKit
 import VaporSkeletonKitE2ESupport
 import VaporSkeletonKitMCP
 import VaporSkeletonKitMCPE2ESupport

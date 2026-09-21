@@ -125,6 +125,7 @@ let package = Package(
             dependencies: [
                 .target(name: "VaporSkeletonKitMCPE2ESupport"),
                 .target(name: "VaporSkeletonKitE2ESupport"),
+                .target(name: "VaporSkeletonKitMCP"),
                 .product(name: "Vapor", package: "vapor"),
             ],
             swiftSettings: swiftSettings

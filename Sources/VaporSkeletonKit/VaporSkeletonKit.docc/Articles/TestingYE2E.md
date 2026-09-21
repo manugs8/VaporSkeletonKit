@@ -89,6 +89,18 @@ aceptan cualquier status `200..<300`, no solo `200` — así `post(json:as:)` si
 cual contra un endpoint de creación que responde `201 Created`, sin tener que caer a
 `post(json:)` + decodificar el cuerpo a mano.
 
+`get`/`send` (y la sobrecarga de `get` que decodifica) aceptan `query: [URLQueryItem]`
+para paginación/filtros. `path` se trata siempre como un componente de ruta literal —
+`baseURL.appendingPathComponent(path)` escapa `?`/`&`/`=` como caracteres normales de
+ruta, así que un `path` como `"items?filter=x"` nunca llega como query string al
+servidor; hay que pasarlo por `query:`, que se adjunta vía `URLComponents`:
+
+```swift
+let response = try await client.get(
+    "items", query: [URLQueryItem(name: "filter", value: "active")]
+)
+```
+
 `E2EMCPClient` construye un `MCP.Client` real sobre `HTTPClientTransport` — un cliente
 MCP genuino, hablando HTTP/JSON-RPC real, exactamente como lo haría un agente externo:
 
@@ -99,9 +111,12 @@ let (content, isError) = try await client.callTool(name: "list_items")
 
 Ambos comparten el mismo patrón que `PostgresEnvironmentConfig` y
 `BearerAuthEnvironmentConfig`: `authToken` es un closure que produce el bearer token (o
-`nil` para no enviar ninguno), llamado en cada petición — ninguno de los dos tipos
-asume qué paquete de autenticación usa el proyecto consumidor, ni cachea el token entre
-llamadas.
+`nil` para no enviar ninguno) — ninguno de los dos tipos asume qué paquete de
+autenticación usa el proyecto consumidor. El momento en que se llama sí difiere:
+`E2EHTTPClient` invoca `authToken` en cada petición individual (nunca cachea el
+resultado), mientras que `E2EMCPClient.connect(...)` lo resuelve una única vez al
+conectar y reutiliza ese mismo token para toda la sesión — coherente con que una
+conexión MCP es de larga duración, a diferencia de una petición REST suelta.
 
 ## `withRunningServer`: probando este kit consigo mismo
 

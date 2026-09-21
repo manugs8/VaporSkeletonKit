@@ -145,6 +145,29 @@ que el modelo llamador pueda razonablemente ver y ante el que pueda reaccionar
 (`invalidArgument`, `notFound`, `database`, `internalError`) — se reportan como un
 resultado de herramienta con `isError: true`, no como un fallo a nivel de transporte.
 
+## Modo E2E (rutas backdoor)
+
+`registerE2EMode(_:sceneryFactory:)` monta dos rutas de apoyo para suites E2E: inyección
+de fallos (`POST`/`DELETE /_test/fault`, ver `E2EHTTPClient.armFault`) y preparación de
+estado (`POST /e2e/prepare`, que puede truncar todas las tablas del schema si
+`reset: true` antes de aplicar el escenario pedido). Se niega a registrar nada —lanza
+`E2EModeError.refusedInProduction`— si `app.environment == .production`, para que un
+error en la condición que decide activarlo no pueda exponer estas rutas en un
+despliegue real:
+
+```swift
+import VaporSkeletonKit
+
+if Environment.get("E2E_MODE") == "true" {
+    try registerE2EMode(app, sceneryFactory: MySceneryFactory())
+}
+```
+
+Implementa `SceneryFactoryProtocol` (un único método, `make(scenery:) throws -> any
+E2Escenery`) para mapear el identificador que envía el test (p. ej.
+`"populated_dashboard"`) a tu propio código de seed — `E2Escenery.apply(req:)` recibe el
+`Request` en curso, así que puede usar `req.db` igual que cualquier otro handler.
+
 ## Utilidades de testing
 
 Un producto separado, `VaporSkeletonKitTesting`, contiene utilidades exclusivas de
@@ -188,6 +211,45 @@ let response = try await sendMCP(app, ListTools.request(id: 1, ListTools.Paramet
 let tools = try response.result.get().tools
 ```
 
+`withE2EServer(masterConfig:configure:test:)` combina lo mejor de `withTestApp` (app
+completa, migrada) con transporte HTTP real: arranca un servidor Vapor de verdad en un
+puerto efímero (el `0` que asigna el SO, nunca una colisión con `8080`) contra una base
+de datos Postgres **creada y destruida exclusivamente para esa ejecución** — el
+`dynamicDB` que recibe tu `configure` — para que suites E2E que corren en paralelo (como
+las que paraleliza Swift Testing por defecto) nunca se pisen. `masterConfig` son
+credenciales con permiso de `CREATE`/`DROP DATABASE`; igual que
+`makePostgresConfiguration`, esta función nunca lee `Environment` por sí misma:
+
+```swift
+import VaporSkeletonKitTesting
+
+let masterConfig = PostgresEnvironmentConfig(
+    databaseURL: Environment.get("DATABASE_URL"),
+    host: Environment.get("DATABASE_HOST"),
+    port: Environment.get("DATABASE_PORT").flatMap(Int.init),
+    username: Environment.get("DATABASE_USERNAME"),
+    password: Environment.get("DATABASE_PASSWORD"),
+    database: Environment.get("DATABASE_NAME"),
+    tlsDisabled: Environment.get("DATABASE_TLS") == "disable"
+)
+
+try await withE2EServer(masterConfig: masterConfig, configure: { app, dynamicDB in
+    // PostgresEnvironmentConfig es inmutable — reconstruye a partir de masterConfig
+    // con database: dynamicDB en vez de mutarlo.
+    let config = PostgresEnvironmentConfig(
+        databaseURL: masterConfig.databaseURL, host: masterConfig.host,
+        port: masterConfig.port, username: masterConfig.username,
+        password: masterConfig.password, database: dynamicDB,
+        tlsDisabled: masterConfig.tlsDisabled
+    )
+    app.databases.use(try makePostgresConfiguration(from: config), as: .psql)
+    try configure(app) // el configure(_:) real de tu proyecto
+}) { client in
+    let response = try await client.get("health")
+    #expect(response.status == 200)
+}
+```
+
 ## Soporte E2E
 
 Un tercer producto, `VaporSkeletonKitE2ESupport`, contiene utilidades exclusivas de
@@ -223,10 +285,23 @@ Las sobrecargas que decodifican (`post(json:as:)`, `get(as:)`) aceptan cualquier
 de éxito (`200..<300`), no solo `200` — incluido `201 Created`, el caso canónico de un
 `POST` de creación.
 
+`path` se trata siempre como un componente de ruta literal — `"items?filter=x"` no
+funciona como query string, ya que `?`/`&`/`=` se escapan como caracteres de ruta
+normales. Para eso está `query: [URLQueryItem]`, disponible en `get`/`send` (y en la
+sobrecarga que decodifica):
+
+```swift
+let response = try await client.get(
+    "items", query: [URLQueryItem(name: "filter", value: "active"), URLQueryItem(name: "page", value: "2")]
+)
+```
+
 `E2EMCPClient.connect(...)` construye un `MCP.Client` real sobre `HTTPClientTransport`,
-de la misma forma en que lo haría un agente externo, adjuntando un bearer token de la
-misma manera. Vive en `VaporSkeletonKitMCPE2ESupport`, un producto aparte de
-`VaporSkeletonKitE2ESupport` (solo lo necesitas si tu proyecto monta MCP):
+de la misma forma en que lo haría un agente externo. Vive en `VaporSkeletonKitMCPE2ESupport`,
+un producto aparte de `VaporSkeletonKitE2ESupport` (solo lo necesitas si tu proyecto monta
+MCP). A diferencia de `E2EHTTPClient`, `authToken` se resuelve una única vez aquí en
+`connect(...)` y el token resultante se adjunta a cada petición de esa conexión — no se
+vuelve a llamar a `authToken` por petición:
 
 ```swift
 import VaporSkeletonKitMCPE2ESupport
