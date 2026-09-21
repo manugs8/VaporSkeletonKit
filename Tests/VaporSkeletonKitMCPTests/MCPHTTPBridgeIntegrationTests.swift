@@ -192,6 +192,238 @@ struct MCPHTTPBridgeIntegrationTests {
             )
         }
     }
+
+    /// `StatelessHTTPServerTransport.handleRequest` solo entiende `POST` — `GET`/`DELETE`
+    /// caen en su rama `default`, que responde `405` con `Allow: POST`, sin llegar
+    /// siquiera a la validación ni al despacho JSON-RPC.
+    @Test("GET responds 405 Method Not Allowed")
+    func getRespondsMethodNotAllowed() async throws {
+        let app = try await Application.make(.testing)
+        try mountMCPServer(app, name: "TestServer", version: "1.0", instructions: "", tools: [EchoTool()])
+
+        try await app.test(.GET, "mcp") { res in
+            #expect(res.status == .methodNotAllowed)
+            #expect(res.headers.first(name: "Allow") == "POST")
+        }
+
+        try await app.asyncShutdown()
+    }
+
+    @Test("DELETE responds 405 Method Not Allowed")
+    func deleteRespondsMethodNotAllowed() async throws {
+        let app = try await Application.make(.testing)
+        try mountMCPServer(app, name: "TestServer", version: "1.0", instructions: "", tools: [EchoTool()])
+
+        try await app.test(.DELETE, "mcp") { res in
+            #expect(res.status == .methodNotAllowed)
+            #expect(res.headers.first(name: "Allow") == "POST")
+        }
+
+        try await app.asyncShutdown()
+    }
+
+    @Test("Mounts at a custom path instead of the \"mcp\" default")
+    func mountsAtACustomPath() async throws {
+        let app = try await Application.make(.testing)
+        try mountMCPServer(
+            app, name: "TestServer", version: "1.0", instructions: "", tools: [EchoTool()], path: "custom-mcp"
+        )
+
+        try await app.test(.POST, "custom-mcp") { req in
+            req.body = .init(string: Self.initializeRequestBody)
+            req.headers.contentType = .json
+            req.headers.replaceOrAdd(name: .accept, value: "application/json")
+        } afterResponse: { res in
+            #expect(res.status == .ok)
+        }
+
+        // El default "mcp" nunca se registró — nada responde ahí.
+        try await app.test(.POST, "mcp") { req in
+            req.body = .init(string: Self.initializeRequestBody)
+            req.headers.contentType = .json
+            req.headers.replaceOrAdd(name: .accept, value: "application/json")
+        } afterResponse: { res in
+            #expect(res.status == .notFound)
+        }
+
+        try await app.asyncShutdown()
+    }
+
+    @Test("Rejects a request that doesn't accept application/json with 406")
+    func rejectsMissingAcceptHeader() async throws {
+        let app = try await Application.make(.testing)
+        try mountMCPServer(app, name: "TestServer", version: "1.0", instructions: "", tools: [EchoTool()])
+
+        try await app.test(.POST, "mcp") { req in
+            req.body = .init(string: Self.callToolRequestBody)
+            req.headers.contentType = .json
+            req.headers.replaceOrAdd(name: .accept, value: "text/html")
+        } afterResponse: { res in
+            #expect(res.status == .notAcceptable)
+        }
+
+        try await app.asyncShutdown()
+    }
+
+    @Test("Rejects a Content-Type other than application/json with 415")
+    func rejectsWrongContentType() async throws {
+        let app = try await Application.make(.testing)
+        try mountMCPServer(app, name: "TestServer", version: "1.0", instructions: "", tools: [EchoTool()])
+
+        try await app.test(.POST, "mcp") { req in
+            req.body = .init(string: Self.callToolRequestBody)
+            req.headers.contentType = .plainText
+            req.headers.replaceOrAdd(name: .accept, value: "application/json")
+        } afterResponse: { res in
+            #expect(res.status == .unsupportedMediaType)
+        }
+
+        try await app.asyncShutdown()
+    }
+
+    @Test("Rejects an unsupported MCP-Protocol-Version header with 400")
+    func rejectsUnsupportedProtocolVersion() async throws {
+        let app = try await Application.make(.testing)
+        try mountMCPServer(app, name: "TestServer", version: "1.0", instructions: "", tools: [EchoTool()])
+
+        try await app.test(.POST, "mcp") { req in
+            req.body = .init(string: Self.callToolRequestBody)
+            req.headers.contentType = .json
+            req.headers.replaceOrAdd(name: .accept, value: "application/json")
+            req.headers.replaceOrAdd(name: "MCP-Protocol-Version", value: "1999-01-01")
+        } afterResponse: { res in
+            #expect(res.status == .badRequest)
+        }
+
+        try await app.asyncShutdown()
+    }
+
+    /// `mountMCPServer` monta `OriginValidator.disabled` a propósito (pensado para
+    /// despliegues en la nube, donde el rebinding de DNS no es una amenaza relevante) —
+    /// un `Origin` que un `.localhost()` rechazaría no debe tener ningún efecto aquí.
+    @Test("Doesn't reject an unrecognized Origin header — origin validation is disabled")
+    func doesNotRejectOnOrigin() async throws {
+        let app = try await Application.make(.testing)
+        try mountMCPServer(app, name: "TestServer", version: "1.0", instructions: "", tools: [EchoTool()])
+
+        try await app.test(.POST, "mcp") { req in
+            req.body = .init(string: Self.initializeRequestBody)
+            req.headers.contentType = .json
+            req.headers.replaceOrAdd(name: .accept, value: "application/json")
+            req.headers.replaceOrAdd(name: .origin, value: "http://evil.example.com")
+        } afterResponse: { res in
+            #expect(res.status == .ok)
+        }
+
+        try await app.asyncShutdown()
+    }
+
+    @Test("Lists and reads a resource over real HTTP requests")
+    func listsAndReadsResourcesOverHTTP() async throws {
+        let app = try await Application.make(.testing)
+        try mountMCPServer(
+            app, name: "TestServer", version: "1.0", instructions: "", tools: [], resources: [StaticResource()]
+        )
+
+        try await app.test(.POST, "mcp") { req in
+            let listRequest = """
+            {
+                "jsonrpc": "2.0",
+                "id": "1",
+                "method": "resources/list"
+            }
+            """
+            req.body = .init(string: listRequest)
+            req.headers.contentType = .json
+            req.headers.replaceOrAdd(name: .accept, value: "application/json")
+        } afterResponse: { res in
+            #expect(res.status == .ok)
+
+            struct ListResourcesResponse: Decodable {
+                let result: ResultBody
+                struct ResultBody: Decodable {
+                    let resources: [ResourceItem]
+                }
+                struct ResourceItem: Decodable {
+                    let uri: String
+                    let name: String
+                    let mimeType: String?
+                }
+            }
+
+            let response = try JSONDecoder().decode(ListResourcesResponse.self, from: Data(buffer: res.body))
+            #expect(response.result.resources.count == 1)
+            #expect(response.result.resources.first?.uri == "static://greeting")
+            #expect(response.result.resources.first?.name == "greeting")
+            #expect(response.result.resources.first?.mimeType == "text/plain")
+        }
+
+        try await app.test(.POST, "mcp") { req in
+            let readRequest = """
+            {
+                "jsonrpc": "2.0",
+                "id": "2",
+                "method": "resources/read",
+                "params": {
+                    "uri": "static://greeting"
+                }
+            }
+            """
+            req.body = .init(string: readRequest)
+            req.headers.contentType = .json
+            req.headers.replaceOrAdd(name: .accept, value: "application/json")
+        } afterResponse: { res in
+            #expect(res.status == .ok)
+
+            struct ReadResourceResponse: Decodable {
+                let result: ResultBody
+                struct ResultBody: Decodable {
+                    let contents: [ContentItem]
+                }
+                struct ContentItem: Decodable {
+                    let uri: String
+                    let text: String?
+                }
+            }
+
+            let response = try JSONDecoder().decode(ReadResourceResponse.self, from: Data(buffer: res.body))
+            #expect(response.result.contents.count == 1)
+            #expect(response.result.contents.first?.uri == "static://greeting")
+            #expect(response.result.contents.first?.text == "hello")
+        }
+
+        try await app.asyncShutdown()
+    }
+
+    private static let initializeRequestBody = """
+        {
+            "jsonrpc": "2.0",
+            "id": "1",
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {
+                    "name": "test-client",
+                    "version": "1.0"
+                }
+            }
+        }
+        """
+
+    private static let callToolRequestBody = """
+        {
+            "jsonrpc": "2.0",
+            "id": "1",
+            "method": "tools/call",
+            "params": {
+                "name": "echo",
+                "arguments": {
+                    "text": "hi"
+                }
+            }
+        }
+        """
 }
 
 private struct StaticResource: MCPResource {
