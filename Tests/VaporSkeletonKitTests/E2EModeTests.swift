@@ -67,6 +67,33 @@ struct E2EModeTests {
         }
         try await app.asyncShutdown()
     }
+
+    /// Ver V12 en el informe de auditoría: cuando `scenarioFactory.make(scenario:)`
+    /// lanza (p. ej. porque el identificador recibido no corresponde a ningún
+    /// escenario conocido), Vapor lo trataba como un error interno no manejado y
+    /// devolvía 500 — para un dato de entrada inválido enviado por el propio cliente,
+    /// que debería ser un 400.
+    @Test("POST /e2e/prepare returns 400 (not 500) when the factory rejects an unknown scenario")
+    func returns400ForUnknownScenario() async throws {
+        let app = try await Application.make(.testing)
+        do {
+            try registerE2EMode(app, scenarioFactory: ThrowingScenarioFactory())
+
+            try await app.testing().test(
+                .POST, "e2e/prepare",
+                beforeRequest: { req in
+                    try req.content.encode(PrepareScenarioRequest(scenario: "no_existe", reset: false))
+                },
+                afterResponse: { res async in
+                    #expect(res.status == .badRequest)
+                }
+            )
+        } catch {
+            try? await app.asyncShutdown()
+            throw error
+        }
+        try await app.asyncShutdown()
+    }
 }
 
 private struct StubScenarioFactory: E2EScenarioFactory {
@@ -92,5 +119,13 @@ private struct RecordingScenario: E2EScenario {
     let recorder: Recorder
     func apply(req: Request) async throws {
         await recorder.record(name)
+    }
+}
+
+private struct UnknownScenarioNameError: Error {}
+
+private struct ThrowingScenarioFactory: E2EScenarioFactory {
+    func make(scenario: String) throws -> any E2EScenario {
+        throw UnknownScenarioNameError()
     }
 }
