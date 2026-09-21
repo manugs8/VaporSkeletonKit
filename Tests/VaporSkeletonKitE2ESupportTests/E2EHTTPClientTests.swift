@@ -198,6 +198,46 @@ struct E2EHTTPClientTests {
         }
     }
 
+    /// Cubre la mejora propuesta en `TODO.md` §1: un test puede armar un fallo que imite
+    /// el contrato de error real de su propia app (p. ej. un `AbortError` de Vapor) en vez
+    /// de quedarse con la `FaultBody` fija de `TestFaultInjectionMiddleware`.
+    @Test("armFault(body:headers:): the faulted response echoes back the custom body and headers")
+    func armFaultWithCustomBodyEndToEnd() async throws {
+        try await withRunningServer(mount: mountArmableFlakyRoute) { baseURL in
+            let client = E2EHTTPClient(baseURL: baseURL)
+            let customBody = Data(#"{"error":true,"reason":"Database connection lost"}"#.utf8)
+            try await client.armFault(
+                method: "GET", path: "/flaky", status: 500,
+                body: customBody, headers: ["X-Fault-Reason": "db-down"]
+            )
+
+            let faulted = try await client.get("flaky", authorization: .none)
+            #expect(faulted.status == 500)
+            #expect(faulted.body == customBody)
+            #expect(faulted.headers["content-type"] == "application/json")
+            #expect(faulted.headers["x-fault-reason"] == "db-down")
+
+            // Consumido: la siguiente petición vuelve al handler real.
+            let afterward = try await client.get("flaky", authorization: .none)
+            #expect(afterward.status == 200)
+        }
+    }
+
+    @Test("armFault(encoding:): encodes an Encodable body to JSON automatically")
+    func armFaultWithEncodableBodyEndToEnd() async throws {
+        try await withRunningServer(mount: mountArmableFlakyRoute) { baseURL in
+            let client = E2EHTTPClient(baseURL: baseURL)
+            try await client.armFault(
+                method: "GET", path: "/flaky", status: 422, encoding: Message(text: "validation failed")
+            )
+
+            let faulted = try await client.get("flaky", authorization: .none)
+            #expect(faulted.status == 422)
+            let decoded = try JSONDecoder.e2e.decode(Message.self, from: faulted.body)
+            #expect(decoded == Message(text: "validation failed"))
+        }
+    }
+
     /// `session.data(for:)` no siempre devuelve un `HTTPURLResponse` — un `file://`
     /// nunca lo es. `send(...)` debe reportarlo como ``E2EHTTPError/unexpectedStatus``
     /// con status `-1` en vez de forzar el cast y crashear.

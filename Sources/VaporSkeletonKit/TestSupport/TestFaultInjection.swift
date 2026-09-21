@@ -1,3 +1,4 @@
+import Foundation
 import Vapor
 
 /// Estado compartido para `TestFaultInjectionMiddleware`.
@@ -5,12 +6,22 @@ actor FaultInjectionStore {
     struct ArmedFault: Sendable {
         let status: Int
         let delayMilliseconds: Int
+        /// Cuerpo crudo a devolver en vez de `FaultBody` por defecto — `nil` conserva el
+        /// comportamiento previo.
+        let body: Data?
+        /// Cabeceras adicionales a añadir a la respuesta cuando `body` no es `nil`.
+        let headers: [String: String]?
     }
 
     private var armed: [String: ArmedFault] = [:]
 
-    func arm(method: String, path: String, status: Int, delayMilliseconds: Int) {
-        armed[Self.key(method: method, path: path)] = ArmedFault(status: status, delayMilliseconds: delayMilliseconds)
+    func arm(
+        method: String, path: String, status: Int, delayMilliseconds: Int,
+        body: Data? = nil, headers: [String: String]? = nil
+    ) {
+        armed[Self.key(method: method, path: path)] = ArmedFault(
+            status: status, delayMilliseconds: delayMilliseconds, body: body, headers: headers
+        )
     }
 
     func consume(method: String, path: String) -> ArmedFault? {
@@ -34,11 +45,41 @@ struct TestFaultInjectionMiddleware: AsyncMiddleware {
     /// desmedido (o negativo, por error) no debería poder colgar la suite entera.
     static let maxDelayMilliseconds = 30_000
 
+    /// Tope superior (en bytes UTF-8) para `ArmRequest.body` — protege contra un `body`
+    /// desmedido (por error o adrede) de la misma forma que `maxDelayMilliseconds` protege
+    /// contra un delay desmedido.
+    static let maxBodyBytes = 64 * 1024
+
     struct ArmRequest: Content {
         let method: String
         let path: String
         let status: Int
         let delayMilliseconds: Int?
+        /// Cuerpo de respuesta a devolver en vez de `FaultBody` cuando el fallo se
+        /// consuma — texto crudo (normalmente JSON ya serializado por el llamador), no
+        /// un objeto a volver a codificar. Permite que un consumidor arme una respuesta
+        /// que imite el contrato de error real de su propia app (p. ej. el
+        /// `{"error": true, "reason": "..."}` de un `AbortError` de Vapor) en vez de
+        /// quedarse con la forma fija de `FaultBody`. `nil` (el valor por defecto)
+        /// conserva el comportamiento previo.
+        let body: String?
+        /// Cabeceras adicionales a añadir a la respuesta cuando `body` no es `nil` — se
+        /// ignoran si `body` es `nil`. Incluir `Content-Type` aquí sobreescribe el
+        /// `application/json` que se añade por defecto cuando hay `body`.
+        let headers: [String: String]?
+
+        // Inicializador explícito con valores por defecto para `body`/`headers` — el
+        // sintetizado por Swift para un `struct` con propiedades sin valor por defecto
+        // exigiría pasarlas siempre, rompiendo cada construcción existente de
+        // `ArmRequest(...)` en tests que no conocen estos campos nuevos.
+        init(method: String, path: String, status: Int, delayMilliseconds: Int?, body: String? = nil, headers: [String: String]? = nil) {
+            self.method = method
+            self.path = path
+            self.status = status
+            self.delayMilliseconds = delayMilliseconds
+            self.body = body
+            self.headers = headers
+        }
     }
 
     struct FaultBody: Content {
@@ -72,11 +113,16 @@ struct TestFaultInjectionMiddleware: AsyncMiddleware {
                         "delayMilliseconds must be in 0...\(Self.maxDelayMilliseconds), got \(delayMilliseconds)."
                     )
                 }
+                if let body = armRequest.body, body.utf8.count > Self.maxBodyBytes {
+                    return Self.badRequest("body must be at most \(Self.maxBodyBytes) bytes, got \(body.utf8.count).")
+                }
                 await store.arm(
                     method: armRequest.method,
                     path: armRequest.path,
                     status: armRequest.status,
-                    delayMilliseconds: delayMilliseconds
+                    delayMilliseconds: delayMilliseconds,
+                    body: armRequest.body.map { Data($0.utf8) },
+                    headers: armRequest.headers
                 )
                 return Response(status: .ok)
             case .DELETE:
@@ -92,7 +138,15 @@ struct TestFaultInjectionMiddleware: AsyncMiddleware {
                 try await Task.sleep(for: .milliseconds(fault.delayMilliseconds))
             }
             let response = Response(status: HTTPResponseStatus(statusCode: fault.status))
-            try response.content.encode(FaultBody(error: "test_fault_injected", status: fault.status))
+            if let body = fault.body {
+                response.headers.replaceOrAdd(name: .contentType, value: "application/json")
+                for (name, value) in fault.headers ?? [:] {
+                    response.headers.replaceOrAdd(name: name, value: value)
+                }
+                response.body = .init(data: body)
+            } else {
+                try response.content.encode(FaultBody(error: "test_fault_injected", status: fault.status))
+            }
             return response
         }
 

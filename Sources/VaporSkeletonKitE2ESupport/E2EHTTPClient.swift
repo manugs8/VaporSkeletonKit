@@ -238,16 +238,77 @@ extension JSONDecoder {
 extension E2EHTTPClient {
     /// Arma un fallo (inyectado) para que la siguiente solicitud a este endpoint falle con el estado provisto.
     /// Esto invocará al endpoint implícito `/_test/fault` usado en `TestFaultInjectionMiddleware` (VaporSkeletonKit).
-    public func armFault(method: String, path: String, status: Int, delayMilliseconds: Int? = nil, authorization: Authorization = .default) async throws {
+    ///
+    /// La respuesta que produce este fallo es `FaultBody` de VaporSkeletonKit
+    /// (`{"error": "test_fault_injected", "status": <status>}`). Para que un test verifique
+    /// el contrato de error real de su propia app (p. ej. un `AbortError` de Vapor), usa
+    /// ``armFault(method:path:status:delayMilliseconds:body:headers:authorization:)`` o
+    /// ``armFault(method:path:status:delayMilliseconds:encoding:headers:authorization:)``.
+    public func armFault(
+        method: String, path: String, status: Int, delayMilliseconds: Int? = nil,
+        authorization: Authorization = .default
+    ) async throws {
+        try await armFault(
+            method: method, path: path, status: status, delayMilliseconds: delayMilliseconds,
+            body: nil, headers: nil, authorization: authorization
+        )
+    }
+
+    /// Como ``armFault(method:path:status:delayMilliseconds:authorization:)``, pero
+    /// devolviendo `body` (bytes crudos, típicamente JSON ya serializado) en vez de la
+    /// `FaultBody` fija de VaporSkeletonKit cuando el fallo se consuma — así un test puede
+    /// verificar que el propio manejo de errores del consumidor produce su forma real
+    /// (p. ej. el `{"error": true, "reason": "..."}` de un `AbortError` de Vapor), sin
+    /// necesitar un fallo genuino (una base de datos inalcanzable, Docker...) solo para
+    /// ver esa forma.
+    ///
+    /// - Parameters:
+    ///   - body: Bytes a devolver como cuerpo de la respuesta faulted. `nil` (el valor
+    ///     por defecto) conserva la `FaultBody` fija. Debe ser texto codificado en UTF-8
+    ///     (normalmente JSON) — viaja embebido como un campo string dentro del JSON que
+    ///     arma el fallo, así que bytes que no sean UTF-8 válido se sustituirían por el
+    ///     carácter de reemplazo `U+FFFD`, no un blob binario arbitrario.
+    ///   - headers: Cabeceras adicionales para esa respuesta — ignoradas si `body` es
+    ///     `nil`. Incluir `Content-Type` aquí sobreescribe el `application/json` que se
+    ///     añade por defecto cuando hay `body`.
+    public func armFault(
+        method: String, path: String, status: Int, delayMilliseconds: Int? = nil,
+        body: Data?, headers: [String: String]? = nil,
+        authorization: Authorization = .default
+    ) async throws {
         struct ArmRequest: Encodable {
             let method: String
             let path: String
             let status: Int
             let delayMilliseconds: Int?
+            let body: String?
+            let headers: [String: String]?
         }
-        let response = try await post("/_test/fault", encoding: ArmRequest(method: method, path: path, status: status, delayMilliseconds: delayMilliseconds), authorization: authorization)
+        let response = try await post(
+            "/_test/fault",
+            encoding: ArmRequest(
+                method: method, path: path, status: status, delayMilliseconds: delayMilliseconds,
+                // `body` viaja como campo string dentro del JSON de armado (ver docstring):
+                // solo texto UTF-8 sobrevive intacto.
+                body: body.map { String(decoding: $0, as: UTF8.self) }, headers: headers
+            ),
+            authorization: authorization
+        )
         guard response.status == 200 else {
             throw E2EHTTPError.unexpectedStatus(response.status, body: String(decoding: response.body, as: UTF8.self))
         }
+    }
+
+    /// Conveniencia sobre ``armFault(method:path:status:delayMilliseconds:body:headers:authorization:)``
+    /// que codifica `body` a JSON automáticamente, igual que `post(_:encoding:)`.
+    public func armFault(
+        method: String, path: String, status: Int, delayMilliseconds: Int? = nil,
+        encoding body: some Encodable, headers: [String: String]? = nil,
+        authorization: Authorization = .default
+    ) async throws {
+        try await armFault(
+            method: method, path: path, status: status, delayMilliseconds: delayMilliseconds,
+            body: try JSONEncoder.e2e.encode(body), headers: headers, authorization: authorization
+        )
     }
 }

@@ -250,4 +250,157 @@ struct TestFaultInjectionTests {
         }
         try await app.asyncShutdown()
     }
+
+    /// Cubre la mejora propuesta en `TODO.md` §1: un consumidor puede armar un fallo que
+    /// devuelva su propio contrato de error (p. ej. el de un `AbortError` de Vapor) en vez
+    /// de quedarse con la `FaultBody` fija.
+    @Test("An armed fault with a custom body echoes it back verbatim, with an application/json Content-Type")
+    func armedFaultWithCustomBodyEchoesItBack() async throws {
+        let app = try await Application.make(.testing)
+        do {
+            registerTestFaultInjection(app)
+
+            app.get("owners") { _ in Response(status: .ok) }
+
+            let customBody = #"{"error":true,"reason":"Database connection lost"}"#
+            try await app.testing().test(
+                .POST, "_test/fault",
+                beforeRequest: { req in
+                    try req.content.encode(
+                        TestFaultInjectionMiddleware.ArmRequest(
+                            method: "GET", path: "/owners", status: 500, delayMilliseconds: nil,
+                            body: customBody
+                        )
+                    )
+                },
+                afterResponse: { res async in
+                    #expect(res.status == .ok)
+                }
+            )
+
+            try await app.testing().test(.GET, "owners", afterResponse: { res async in
+                #expect(res.status == .internalServerError)
+                #expect(res.headers.contentType?.description == "application/json")
+                #expect(res.body.string == customBody)
+            })
+
+            // Consumido: la siguiente petición vuelve al handler real, no a FaultBody ni al body custom.
+            try await app.testing().test(.GET, "owners", afterResponse: { res async in
+                #expect(res.status == .ok)
+            })
+        } catch {
+            try? await app.asyncShutdown()
+            throw error
+        }
+        try await app.asyncShutdown()
+    }
+
+    @Test("An armed fault's custom headers are added to the faulted response")
+    func armedFaultWithCustomHeaders() async throws {
+        let app = try await Application.make(.testing)
+        do {
+            registerTestFaultInjection(app)
+
+            app.get("owners") { _ in Response(status: .ok) }
+
+            try await app.testing().test(
+                .POST, "_test/fault",
+                beforeRequest: { req in
+                    try req.content.encode(
+                        TestFaultInjectionMiddleware.ArmRequest(
+                            method: "GET", path: "/owners", status: 503, delayMilliseconds: nil,
+                            body: #"{"error":"unavailable"}"#,
+                            headers: ["Retry-After": "5", "X-Fault-Reason": "maintenance"]
+                        )
+                    )
+                },
+                afterResponse: { res async in
+                    #expect(res.status == .ok)
+                }
+            )
+
+            try await app.testing().test(.GET, "owners", afterResponse: { res async in
+                #expect(res.status == .serviceUnavailable)
+                #expect(res.headers.first(name: "Retry-After") == "5")
+                #expect(res.headers.first(name: "X-Fault-Reason") == "maintenance")
+            })
+        } catch {
+            try? await app.asyncShutdown()
+            throw error
+        }
+        try await app.asyncShutdown()
+    }
+
+    /// `headers` puede incluir `Content-Type` explícitamente para sobreescribir el
+    /// `application/json` por defecto — p. ej. un consumidor cuyo `ErrorMiddleware`
+    /// respondiera texto plano en vez de JSON.
+    @Test("A custom header can override the default Content-Type for the faulted response")
+    func customHeaderOverridesDefaultContentType() async throws {
+        let app = try await Application.make(.testing)
+        do {
+            registerTestFaultInjection(app)
+
+            app.get("owners") { _ in Response(status: .ok) }
+
+            try await app.testing().test(
+                .POST, "_test/fault",
+                beforeRequest: { req in
+                    try req.content.encode(
+                        TestFaultInjectionMiddleware.ArmRequest(
+                            method: "GET", path: "/owners", status: 500, delayMilliseconds: nil,
+                            body: "internal error", headers: ["Content-Type": "text/plain; charset=utf-8"]
+                        )
+                    )
+                },
+                afterResponse: { res async in
+                    #expect(res.status == .ok)
+                }
+            )
+
+            try await app.testing().test(.GET, "owners", afterResponse: { res async in
+                #expect(res.status == .internalServerError)
+                #expect(res.headers.contentType?.description == "text/plain; charset=utf-8")
+                #expect(res.body.string == "internal error")
+            })
+        } catch {
+            try? await app.asyncShutdown()
+            throw error
+        }
+        try await app.asyncShutdown()
+    }
+
+    @Test("Rejects a body larger than the cap with 400, without arming anything")
+    func rejectsExcessiveBody() async throws {
+        let app = try await Application.make(.testing)
+        do {
+            registerTestFaultInjection(app)
+
+            app.get("owners") { _ in Response(status: .ok) }
+
+            let oversizedBody = String(repeating: "x", count: TestFaultInjectionMiddleware.maxBodyBytes + 1)
+            try await app.testing().test(
+                .POST, "_test/fault",
+                beforeRequest: { req in
+                    try req.content.encode(
+                        TestFaultInjectionMiddleware.ArmRequest(
+                            method: "GET", path: "/owners", status: 500, delayMilliseconds: nil,
+                            body: oversizedBody
+                        )
+                    )
+                },
+                afterResponse: { res async in
+                    #expect(res.status == .badRequest)
+                }
+            )
+
+            // Nada quedó armado — la petición real sigue respondiendo con normalidad.
+            try await app.testing().test(.GET, "owners", afterResponse: { res async in
+                #expect(res.status == .ok)
+            })
+        } catch {
+            try? await app.asyncShutdown()
+            throw error
+        }
+        try await app.asyncShutdown()
+    }
 }
