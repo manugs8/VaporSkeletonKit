@@ -25,172 +25,180 @@ struct MCPHTTPBridgeIntegrationTests {
     @Test("Mounts route and responds to requests")
     func testMountRoute() async throws {
         let app = try await Application.make(.testing)
-        
-        try mountMCPServer(
-            app,
-            name: "TestServer",
-            version: "1.0",
-            instructions: "Testing instructions",
-            tools: [EchoTool()]
-        )
-        
-        try await app.test(.POST, "mcp") { req in
-            let initRequest = """
-            {
-                "jsonrpc": "2.0",
-                "id": "1",
-                "method": "initialize",
-                "params": {
-                    "protocolVersion": "2024-11-05",
-                    "capabilities": {},
-                    "clientInfo": {
-                        "name": "test-client",
-                        "version": "1.0"
+        do {
+            try mountMCPServer(
+                app,
+                name: "TestServer",
+                version: "1.0",
+                instructions: "Testing instructions",
+                tools: [EchoTool()]
+            )
+
+            try await app.test(.POST, "mcp") { req in
+                let initRequest = """
+                {
+                    "jsonrpc": "2.0",
+                    "id": "1",
+                    "method": "initialize",
+                    "params": {
+                        "protocolVersion": "2024-11-05",
+                        "capabilities": {},
+                        "clientInfo": {
+                            "name": "test-client",
+                            "version": "1.0"
+                        }
                     }
                 }
-            }
-            """
-            req.body = .init(string: initRequest)
-            req.headers.contentType = .json
-            req.headers.replaceOrAdd(name: .accept, value: "application/json")
-        } afterResponse: { res in
-            #expect(res.status == .ok)
-            
-            struct InitializeResponse: Decodable {
-                let jsonrpc: String
-                let id: String
-                let result: ResultBody
-                
-                struct ResultBody: Decodable {
-                    let protocolVersion: String
-                    let serverInfo: ServerInfo
+                """
+                req.body = .init(string: initRequest)
+                req.headers.contentType = .json
+                req.headers.replaceOrAdd(name: .accept, value: "application/json")
+            } afterResponse: { res in
+                #expect(res.status == .ok)
+
+                struct InitializeResponse: Decodable {
+                    let jsonrpc: String
+                    let id: String
+                    let result: ResultBody
+
+                    struct ResultBody: Decodable {
+                        let protocolVersion: String
+                        let serverInfo: ServerInfo
+                    }
+
+                    struct ServerInfo: Decodable {
+                        let name: String
+                        let version: String
+                    }
                 }
-                
-                struct ServerInfo: Decodable {
-                    let name: String
-                    let version: String
-                }
+
+                let data = Data(buffer: res.body)
+                let response = try JSONDecoder().decode(InitializeResponse.self, from: data)
+
+                #expect(response.jsonrpc == "2.0")
+                #expect(response.id == "1")
+                #expect(response.result.protocolVersion == "2024-11-05")
+                #expect(response.result.serverInfo.name == "TestServer")
+                #expect(response.result.serverInfo.version == "1.0")
             }
-            
-            let data = Data(buffer: res.body)
-            let response = try JSONDecoder().decode(InitializeResponse.self, from: data)
-            
-            #expect(response.jsonrpc == "2.0")
-            #expect(response.id == "1")
-            #expect(response.result.protocolVersion == "2024-11-05")
-            #expect(response.result.serverInfo.name == "TestServer")
-            #expect(response.result.serverInfo.version == "1.0")
+        } catch {
+            try? await app.asyncShutdown()
+            throw error
         }
-        
         try await app.asyncShutdown()
     }
 
     @Test("Initializes then calls a tool and returns its result")
     func testCallTool() async throws {
         let app = try await Application.make(.testing)
+        do {
+            try mountMCPServer(
+                app,
+                name: "TestServer",
+                version: "1.0",
+                instructions: "Testing instructions",
+                tools: [EchoTool()]
+            )
 
-        try mountMCPServer(
-            app,
-            name: "TestServer",
-            version: "1.0",
-            instructions: "Testing instructions",
-            tools: [EchoTool()]
-        )
-
-        try await app.test(.POST, "mcp") { req in
-            let initRequest = """
-            {
-                "jsonrpc": "2.0",
-                "id": "1",
-                "method": "initialize",
-                "params": {
-                    "protocolVersion": "2024-11-05",
-                    "capabilities": {},
-                    "clientInfo": {
-                        "name": "test-client",
-                        "version": "1.0"
+            try await app.test(.POST, "mcp") { req in
+                let initRequest = """
+                {
+                    "jsonrpc": "2.0",
+                    "id": "1",
+                    "method": "initialize",
+                    "params": {
+                        "protocolVersion": "2024-11-05",
+                        "capabilities": {},
+                        "clientInfo": {
+                            "name": "test-client",
+                            "version": "1.0"
+                        }
                     }
                 }
+                """
+                req.body = .init(string: initRequest)
+                req.headers.contentType = .json
+                req.headers.replaceOrAdd(name: .accept, value: "application/json")
+            } afterResponse: { res in
+                #expect(res.status == .ok)
             }
-            """
-            req.body = .init(string: initRequest)
-            req.headers.contentType = .json
-            req.headers.replaceOrAdd(name: .accept, value: "application/json")
-        } afterResponse: { res in
-            #expect(res.status == .ok)
-        }
 
-        try await app.test(.POST, "mcp") { req in
-            let callRequest = """
-            {
-                "jsonrpc": "2.0",
-                "id": "2",
-                "method": "tools/call",
-                "params": {
-                    "name": "echo",
-                    "arguments": {
-                        "text": "Hello, MCP!"
+            try await app.test(.POST, "mcp") { req in
+                let callRequest = """
+                {
+                    "jsonrpc": "2.0",
+                    "id": "2",
+                    "method": "tools/call",
+                    "params": {
+                        "name": "echo",
+                        "arguments": {
+                            "text": "Hello, MCP!"
+                        }
                     }
                 }
-            }
-            """
-            req.body = .init(string: callRequest)
-            req.headers.contentType = .json
-            req.headers.replaceOrAdd(name: .accept, value: "application/json")
-        } afterResponse: { res in
-            #expect(res.status == .ok)
+                """
+                req.body = .init(string: callRequest)
+                req.headers.contentType = .json
+                req.headers.replaceOrAdd(name: .accept, value: "application/json")
+            } afterResponse: { res in
+                #expect(res.status == .ok)
 
-            struct CallToolResponse: Decodable {
-                let jsonrpc: String
-                let id: String
-                let result: ResultBody
+                struct CallToolResponse: Decodable {
+                    let jsonrpc: String
+                    let id: String
+                    let result: ResultBody
 
-                struct ResultBody: Decodable {
-                    let content: [ContentItem]
+                    struct ResultBody: Decodable {
+                        let content: [ContentItem]
+                    }
+
+                    struct ContentItem: Decodable {
+                        let type: String
+                        let text: String
+                    }
                 }
 
-                struct ContentItem: Decodable {
-                    let type: String
-                    let text: String
-                }
+                let data = Data(buffer: res.body)
+                let response = try JSONDecoder().decode(CallToolResponse.self, from: data)
+
+                #expect(response.jsonrpc == "2.0")
+                #expect(response.id == "2")
+                #expect(response.result.content.count == 1)
+                #expect(response.result.content.first?.type == "text")
+                #expect(response.result.content.first?.text == "Hello, MCP!")
             }
-
-            let data = Data(buffer: res.body)
-            let response = try JSONDecoder().decode(CallToolResponse.self, from: data)
-
-            #expect(response.jsonrpc == "2.0")
-            #expect(response.id == "2")
-            #expect(response.result.content.count == 1)
-            #expect(response.result.content.first?.type == "text")
-            #expect(response.result.content.first?.text == "Hello, MCP!")
+        } catch {
+            try? await app.asyncShutdown()
+            throw error
         }
-
         try await app.asyncShutdown()
     }
 
+    /// Sin `do/catch` a propósito, a diferencia del resto de tests de este fichero:
+    /// `#expect(throws:)` nunca deja escapar el error de su closure (registra un issue
+    /// y sigue), así que nada entre `Application.make` y `asyncShutdown()` puede lanzar
+    /// aquí — envolverlo en `do/catch` sería código inalcanzable (el compilador avisa).
     @Test("Refuses to mount when two tools share the same name")
     func rejectsDuplicateToolNames() async throws {
         let app = try await Application.make(.testing)
-        defer { Task { try? await app.asyncShutdown() } }
-
         #expect(throws: MCPServerMountError.duplicateToolName("echo")) {
             try mountMCPServer(
                 app, name: "TestServer", version: "1.0", instructions: "", tools: [EchoTool(), EchoTool()]
             )
         }
+        try await app.asyncShutdown()
     }
 
     @Test("Refuses to mount when two resources share the same uri")
     func rejectsDuplicateResourceURIs() async throws {
         let app = try await Application.make(.testing)
-        defer { Task { try? await app.asyncShutdown() } }
-
         #expect(throws: MCPServerMountError.duplicateResourceURI("static://greeting")) {
             try mountMCPServer(
                 app, name: "TestServer", version: "1.0", instructions: "", tools: [],
                 resources: [StaticResource(), StaticResource()]
             )
         }
+        try await app.asyncShutdown()
     }
 
     /// `StatelessHTTPServerTransport.handleRequest` solo entiende `POST` — `GET`/`DELETE`
@@ -199,102 +207,126 @@ struct MCPHTTPBridgeIntegrationTests {
     @Test("GET responds 405 Method Not Allowed")
     func getRespondsMethodNotAllowed() async throws {
         let app = try await Application.make(.testing)
-        try mountMCPServer(app, name: "TestServer", version: "1.0", instructions: "", tools: [EchoTool()])
+        do {
+            try mountMCPServer(app, name: "TestServer", version: "1.0", instructions: "", tools: [EchoTool()])
 
-        try await app.test(.GET, "mcp") { res in
-            #expect(res.status == .methodNotAllowed)
-            #expect(res.headers.first(name: "Allow") == "POST")
+            try await app.test(.GET, "mcp") { res in
+                #expect(res.status == .methodNotAllowed)
+                #expect(res.headers.first(name: "Allow") == "POST")
+            }
+        } catch {
+            try? await app.asyncShutdown()
+            throw error
         }
-
         try await app.asyncShutdown()
     }
 
     @Test("DELETE responds 405 Method Not Allowed")
     func deleteRespondsMethodNotAllowed() async throws {
         let app = try await Application.make(.testing)
-        try mountMCPServer(app, name: "TestServer", version: "1.0", instructions: "", tools: [EchoTool()])
+        do {
+            try mountMCPServer(app, name: "TestServer", version: "1.0", instructions: "", tools: [EchoTool()])
 
-        try await app.test(.DELETE, "mcp") { res in
-            #expect(res.status == .methodNotAllowed)
-            #expect(res.headers.first(name: "Allow") == "POST")
+            try await app.test(.DELETE, "mcp") { res in
+                #expect(res.status == .methodNotAllowed)
+                #expect(res.headers.first(name: "Allow") == "POST")
+            }
+        } catch {
+            try? await app.asyncShutdown()
+            throw error
         }
-
         try await app.asyncShutdown()
     }
 
     @Test("Mounts at a custom path instead of the \"mcp\" default")
     func mountsAtACustomPath() async throws {
         let app = try await Application.make(.testing)
-        try mountMCPServer(
-            app, name: "TestServer", version: "1.0", instructions: "", tools: [EchoTool()], path: "custom-mcp"
-        )
+        do {
+            try mountMCPServer(
+                app, name: "TestServer", version: "1.0", instructions: "", tools: [EchoTool()], path: "custom-mcp"
+            )
 
-        try await app.test(.POST, "custom-mcp") { req in
-            req.body = .init(string: Self.initializeRequestBody)
-            req.headers.contentType = .json
-            req.headers.replaceOrAdd(name: .accept, value: "application/json")
-        } afterResponse: { res in
-            #expect(res.status == .ok)
+            try await app.test(.POST, "custom-mcp") { req in
+                req.body = .init(string: Self.initializeRequestBody)
+                req.headers.contentType = .json
+                req.headers.replaceOrAdd(name: .accept, value: "application/json")
+            } afterResponse: { res in
+                #expect(res.status == .ok)
+            }
+
+            // El default "mcp" nunca se registró — nada responde ahí.
+            try await app.test(.POST, "mcp") { req in
+                req.body = .init(string: Self.initializeRequestBody)
+                req.headers.contentType = .json
+                req.headers.replaceOrAdd(name: .accept, value: "application/json")
+            } afterResponse: { res in
+                #expect(res.status == .notFound)
+            }
+        } catch {
+            try? await app.asyncShutdown()
+            throw error
         }
-
-        // El default "mcp" nunca se registró — nada responde ahí.
-        try await app.test(.POST, "mcp") { req in
-            req.body = .init(string: Self.initializeRequestBody)
-            req.headers.contentType = .json
-            req.headers.replaceOrAdd(name: .accept, value: "application/json")
-        } afterResponse: { res in
-            #expect(res.status == .notFound)
-        }
-
         try await app.asyncShutdown()
     }
 
     @Test("Rejects a request that doesn't accept application/json with 406")
     func rejectsMissingAcceptHeader() async throws {
         let app = try await Application.make(.testing)
-        try mountMCPServer(app, name: "TestServer", version: "1.0", instructions: "", tools: [EchoTool()])
+        do {
+            try mountMCPServer(app, name: "TestServer", version: "1.0", instructions: "", tools: [EchoTool()])
 
-        try await app.test(.POST, "mcp") { req in
-            req.body = .init(string: Self.callToolRequestBody)
-            req.headers.contentType = .json
-            req.headers.replaceOrAdd(name: .accept, value: "text/html")
-        } afterResponse: { res in
-            #expect(res.status == .notAcceptable)
+            try await app.test(.POST, "mcp") { req in
+                req.body = .init(string: Self.callToolRequestBody)
+                req.headers.contentType = .json
+                req.headers.replaceOrAdd(name: .accept, value: "text/html")
+            } afterResponse: { res in
+                #expect(res.status == .notAcceptable)
+            }
+        } catch {
+            try? await app.asyncShutdown()
+            throw error
         }
-
         try await app.asyncShutdown()
     }
 
     @Test("Rejects a Content-Type other than application/json with 415")
     func rejectsWrongContentType() async throws {
         let app = try await Application.make(.testing)
-        try mountMCPServer(app, name: "TestServer", version: "1.0", instructions: "", tools: [EchoTool()])
+        do {
+            try mountMCPServer(app, name: "TestServer", version: "1.0", instructions: "", tools: [EchoTool()])
 
-        try await app.test(.POST, "mcp") { req in
-            req.body = .init(string: Self.callToolRequestBody)
-            req.headers.contentType = .plainText
-            req.headers.replaceOrAdd(name: .accept, value: "application/json")
-        } afterResponse: { res in
-            #expect(res.status == .unsupportedMediaType)
+            try await app.test(.POST, "mcp") { req in
+                req.body = .init(string: Self.callToolRequestBody)
+                req.headers.contentType = .plainText
+                req.headers.replaceOrAdd(name: .accept, value: "application/json")
+            } afterResponse: { res in
+                #expect(res.status == .unsupportedMediaType)
+            }
+        } catch {
+            try? await app.asyncShutdown()
+            throw error
         }
-
         try await app.asyncShutdown()
     }
 
     @Test("Rejects an unsupported MCP-Protocol-Version header with 400")
     func rejectsUnsupportedProtocolVersion() async throws {
         let app = try await Application.make(.testing)
-        try mountMCPServer(app, name: "TestServer", version: "1.0", instructions: "", tools: [EchoTool()])
+        do {
+            try mountMCPServer(app, name: "TestServer", version: "1.0", instructions: "", tools: [EchoTool()])
 
-        try await app.test(.POST, "mcp") { req in
-            req.body = .init(string: Self.callToolRequestBody)
-            req.headers.contentType = .json
-            req.headers.replaceOrAdd(name: .accept, value: "application/json")
-            req.headers.replaceOrAdd(name: "MCP-Protocol-Version", value: "1999-01-01")
-        } afterResponse: { res in
-            #expect(res.status == .badRequest)
+            try await app.test(.POST, "mcp") { req in
+                req.body = .init(string: Self.callToolRequestBody)
+                req.headers.contentType = .json
+                req.headers.replaceOrAdd(name: .accept, value: "application/json")
+                req.headers.replaceOrAdd(name: "MCP-Protocol-Version", value: "1999-01-01")
+            } afterResponse: { res in
+                #expect(res.status == .badRequest)
+            }
+        } catch {
+            try? await app.asyncShutdown()
+            throw error
         }
-
         try await app.asyncShutdown()
     }
 
@@ -304,94 +336,102 @@ struct MCPHTTPBridgeIntegrationTests {
     @Test("Doesn't reject an unrecognized Origin header — origin validation is disabled")
     func doesNotRejectOnOrigin() async throws {
         let app = try await Application.make(.testing)
-        try mountMCPServer(app, name: "TestServer", version: "1.0", instructions: "", tools: [EchoTool()])
+        do {
+            try mountMCPServer(app, name: "TestServer", version: "1.0", instructions: "", tools: [EchoTool()])
 
-        try await app.test(.POST, "mcp") { req in
-            req.body = .init(string: Self.initializeRequestBody)
-            req.headers.contentType = .json
-            req.headers.replaceOrAdd(name: .accept, value: "application/json")
-            req.headers.replaceOrAdd(name: .origin, value: "http://evil.example.com")
-        } afterResponse: { res in
-            #expect(res.status == .ok)
+            try await app.test(.POST, "mcp") { req in
+                req.body = .init(string: Self.initializeRequestBody)
+                req.headers.contentType = .json
+                req.headers.replaceOrAdd(name: .accept, value: "application/json")
+                req.headers.replaceOrAdd(name: .origin, value: "http://evil.example.com")
+            } afterResponse: { res in
+                #expect(res.status == .ok)
+            }
+        } catch {
+            try? await app.asyncShutdown()
+            throw error
         }
-
         try await app.asyncShutdown()
     }
 
     @Test("Lists and reads a resource over real HTTP requests")
     func listsAndReadsResourcesOverHTTP() async throws {
         let app = try await Application.make(.testing)
-        try mountMCPServer(
-            app, name: "TestServer", version: "1.0", instructions: "", tools: [], resources: [StaticResource()]
-        )
+        do {
+            try mountMCPServer(
+                app, name: "TestServer", version: "1.0", instructions: "", tools: [], resources: [StaticResource()]
+            )
 
-        try await app.test(.POST, "mcp") { req in
-            let listRequest = """
-            {
-                "jsonrpc": "2.0",
-                "id": "1",
-                "method": "resources/list"
-            }
-            """
-            req.body = .init(string: listRequest)
-            req.headers.contentType = .json
-            req.headers.replaceOrAdd(name: .accept, value: "application/json")
-        } afterResponse: { res in
-            #expect(res.status == .ok)
-
-            struct ListResourcesResponse: Decodable {
-                let result: ResultBody
-                struct ResultBody: Decodable {
-                    let resources: [ResourceItem]
+            try await app.test(.POST, "mcp") { req in
+                let listRequest = """
+                {
+                    "jsonrpc": "2.0",
+                    "id": "1",
+                    "method": "resources/list"
                 }
-                struct ResourceItem: Decodable {
-                    let uri: String
-                    let name: String
-                    let mimeType: String?
+                """
+                req.body = .init(string: listRequest)
+                req.headers.contentType = .json
+                req.headers.replaceOrAdd(name: .accept, value: "application/json")
+            } afterResponse: { res in
+                #expect(res.status == .ok)
+
+                struct ListResourcesResponse: Decodable {
+                    let result: ResultBody
+                    struct ResultBody: Decodable {
+                        let resources: [ResourceItem]
+                    }
+                    struct ResourceItem: Decodable {
+                        let uri: String
+                        let name: String
+                        let mimeType: String?
+                    }
                 }
+
+                let response = try JSONDecoder().decode(ListResourcesResponse.self, from: Data(buffer: res.body))
+                #expect(response.result.resources.count == 1)
+                #expect(response.result.resources.first?.uri == "static://greeting")
+                #expect(response.result.resources.first?.name == "greeting")
+                #expect(response.result.resources.first?.mimeType == "text/plain")
             }
 
-            let response = try JSONDecoder().decode(ListResourcesResponse.self, from: Data(buffer: res.body))
-            #expect(response.result.resources.count == 1)
-            #expect(response.result.resources.first?.uri == "static://greeting")
-            #expect(response.result.resources.first?.name == "greeting")
-            #expect(response.result.resources.first?.mimeType == "text/plain")
+            try await app.test(.POST, "mcp") { req in
+                let readRequest = """
+                {
+                    "jsonrpc": "2.0",
+                    "id": "2",
+                    "method": "resources/read",
+                    "params": {
+                        "uri": "static://greeting"
+                    }
+                }
+                """
+                req.body = .init(string: readRequest)
+                req.headers.contentType = .json
+                req.headers.replaceOrAdd(name: .accept, value: "application/json")
+            } afterResponse: { res in
+                #expect(res.status == .ok)
+
+                struct ReadResourceResponse: Decodable {
+                    let result: ResultBody
+                    struct ResultBody: Decodable {
+                        let contents: [ContentItem]
+                    }
+                    struct ContentItem: Decodable {
+                        let uri: String
+                        let text: String?
+                    }
+                }
+
+                let response = try JSONDecoder().decode(ReadResourceResponse.self, from: Data(buffer: res.body))
+                #expect(response.result.contents.count == 1)
+                #expect(response.result.contents.first?.uri == "static://greeting")
+                #expect(response.result.contents.first?.text == "hello")
+            }
+        } catch {
+            try? await app.asyncShutdown()
+            throw error
         }
-
-        try await app.test(.POST, "mcp") { req in
-            let readRequest = """
-            {
-                "jsonrpc": "2.0",
-                "id": "2",
-                "method": "resources/read",
-                "params": {
-                    "uri": "static://greeting"
-                }
-            }
-            """
-            req.body = .init(string: readRequest)
-            req.headers.contentType = .json
-            req.headers.replaceOrAdd(name: .accept, value: "application/json")
-        } afterResponse: { res in
-            #expect(res.status == .ok)
-
-            struct ReadResourceResponse: Decodable {
-                let result: ResultBody
-                struct ResultBody: Decodable {
-                    let contents: [ContentItem]
-                }
-                struct ContentItem: Decodable {
-                    let uri: String
-                    let text: String?
-                }
-            }
-
-            let response = try JSONDecoder().decode(ReadResourceResponse.self, from: Data(buffer: res.body))
-            #expect(response.result.contents.count == 1)
-            #expect(response.result.contents.first?.uri == "static://greeting")
-            #expect(response.result.contents.first?.text == "hello")
-        }
-
         try await app.asyncShutdown()
     }
 

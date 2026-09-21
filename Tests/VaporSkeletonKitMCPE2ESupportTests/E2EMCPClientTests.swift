@@ -38,7 +38,7 @@ private struct CaptureAuthMiddleware: AsyncMiddleware {
 struct E2EMCPClientTests {
     @Test("Connects and calls a mounted tool over a real HTTP round trip")
     func callsToolOverRealHTTP() async throws {
-        try await withRunningServer(port: 18095, mount: mountEchoMCPServer) { baseURL in
+        try await withRunningServer(mount: mountEchoMCPServer) { baseURL in
             let client = try await E2EMCPClient.connect(baseURL: baseURL, authenticated: false)
             let result = try await client.callTool(name: "echo", arguments: ["text": "hi"])
 
@@ -55,7 +55,6 @@ struct E2EMCPClientTests {
         let capture = HeaderCapture()
 
         try await withRunningServer(
-            port: 18096,
             mount: { app in
                 app.middleware.use(CaptureAuthMiddleware(capture: capture))
                 try mountEchoMCPServer(app)
