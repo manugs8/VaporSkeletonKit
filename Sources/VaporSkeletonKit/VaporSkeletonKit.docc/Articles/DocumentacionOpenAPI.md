@@ -25,6 +25,28 @@ De esta forma, en vez de depender de rutas de disco duro o directorios de trabaj
 están configurados correctamente en Docker o en producción), el proyecto consumidor debe pasar explícitamente 
 los datos del documento OpenAPI a esta función.
 
+## Swagger UI: versión fijada y verificada por hash (SRI)
+
+La página `GET /docs` carga Swagger UI desde unpkg con una versión exacta
+(`swagger-ui-dist@5.33.0`, no un rango como `@5`) y con un atributo `integrity`
+(SHA-384) en el `<link>` del CSS y en el `<script>` del bundle JS. Sin esto, un cambio
+de contenido en esa versión del CDN — deliberado o por un CDN comprometido — se
+ejecutaría en el navegador de quien visite `/docs` sin ningún aviso; con `integrity`,
+el navegador se niega a aplicar/ejecutar el recurso si su hash no coincide.
+
+Para actualizar la versión fijada:
+
+```bash
+curl -sL -o swagger-ui.css "https://unpkg.com/swagger-ui-dist@<version>/swagger-ui.css"
+curl -sL -o swagger-ui-bundle.js "https://unpkg.com/swagger-ui-dist@<version>/swagger-ui-bundle.js"
+openssl dgst -sha384 -binary swagger-ui.css | openssl base64 -A
+openssl dgst -sha384 -binary swagger-ui-bundle.js | openssl base64 -A
+```
+
+y sustituir `swaggerUIDistVersion`, `swaggerUICSSIntegrity` y
+`swaggerUIBundleJSIntegrity` en `OpenAPIDocsRoutes.swift` por los nuevos valores —
+nunca solo el número de versión sin recalcular los hashes.
+
 ## Lo que este kit no hace: generar código
 
 `VaporSkeletonKit` sirve el spec — no lo genera, ni genera tipos Swift a partir de él.

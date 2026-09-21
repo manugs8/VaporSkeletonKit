@@ -28,17 +28,26 @@ private func openAPISpecHandler(specData: Data) -> Response {
     return Response(status: .ok, headers: headers, body: body)
 }
 
+/// Versión exacta de `swagger-ui-dist` servida desde unpkg, junto con los hashes SRI
+/// (SHA-384) de esos dos ficheros concretos — calculados a partir del contenido
+/// descargado del CDN para esta versión. Fijar la versión (en vez de un rango como
+/// `@5`) y el hash asegura que, aunque el CDN sirva algo distinto de lo esperado, el
+/// navegador se niegue a ejecutarlo/aplicarlo en vez de cargarlo silenciosamente.
+private let swaggerUIDistVersion = "5.33.0"
+private let swaggerUICSSIntegrity = "sha384-Ov4/wv3j2bmct8cDc5X4ngJZohVPzEmc6uDPH8WeljUxO5vtoykvMEfbu9Vh6RaW"
+private let swaggerUIBundleJSIntegrity = "sha384-YDALVcy8kj8yltLBVi1vBiBAUqdxvus673gM8XKwiy6aDUJFXivF/KCufekjYbVf"
+
 private func swaggerUIHandler(docsTitle: String) -> Response {
     let html = """
     <!DOCTYPE html>
     <html>
     <head>
         <title>\(docsTitle)</title>
-        <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
+        <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@\(swaggerUIDistVersion)/swagger-ui.css" integrity="\(swaggerUICSSIntegrity)" crossorigin="anonymous">
     </head>
     <body>
         <div id="swagger-ui"></div>
-        <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+        <script src="https://unpkg.com/swagger-ui-dist@\(swaggerUIDistVersion)/swagger-ui-bundle.js" integrity="\(swaggerUIBundleJSIntegrity)" crossorigin="anonymous"></script>
         <script>
             window.onload = () => {
                 window.ui = SwaggerUIBundle({
