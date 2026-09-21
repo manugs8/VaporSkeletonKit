@@ -113,11 +113,16 @@ public struct E2EHTTPClient: Sendable {
         guard let http = response as? HTTPURLResponse else {
             throw E2EHTTPError.unexpectedStatus(-1, body: String(decoding: data, as: UTF8.self))
         }
+        // uniquingKeysWith en vez de uniqueKeysWithValues: dos cabeceras que solo
+        // difieren en mayúsculas/minúsculas (p. ej. "X-Custom" y "x-custom") colapsan a
+        // la misma clave en minúsculas — uniqueKeysWithValues haría trap ante eso, en
+        // vez de responder con normalidad. Se queda con el último valor visto.
         let headers = Dictionary(
-            uniqueKeysWithValues: http.allHeaderFields.compactMap { key, value -> (String, String)? in
+            http.allHeaderFields.compactMap { key, value -> (String, String)? in
                 guard let name = key as? String, let stringValue = value as? String else { return nil }
                 return (name.lowercased(), stringValue)
-            }
+            },
+            uniquingKeysWith: { _, last in last }
         )
         return Response(status: http.statusCode, body: data, headers: headers)
     }

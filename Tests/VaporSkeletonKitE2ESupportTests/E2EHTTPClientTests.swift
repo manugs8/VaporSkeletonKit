@@ -91,6 +91,17 @@ struct E2EHTTPClientTests {
         }
     }
 
+    @Test("Doesn't crash when two response headers differ only by case")
+    func duplicateCaseInsensitiveHeadersDoNotCrash() async throws {
+        try await withRunningServer(port: 18101, mount: mountDuplicateCaseHeaderRoute) { baseURL in
+            let client = E2EHTTPClient(baseURL: baseURL)
+            let response = try await client.get("duplicate-header")
+            // No crashea; qué valor concreto "gana" entre dos cabeceras que solo
+            // difieren en mayúsculas/minúsculas no es lo que se está probando aquí.
+            #expect(response.headers["x-dup"] != nil)
+        }
+    }
+
     @Test("send(contentType:) overrides the default application/json Content-Type")
     func customContentType() async throws {
         try await withRunningServer(port: 18099, mount: mountEchoContentTypeRoute) { baseURL in
@@ -194,6 +205,18 @@ private func mountCustomHeaderRoute(_ app: Application) throws {
     app.get("custom-header") { _ -> Response in
         let response = Response(status: .ok)
         response.headers.replaceOrAdd(name: "X-Custom", value: "value")
+        return response
+    }
+}
+
+private func mountDuplicateCaseHeaderRoute(_ app: Application) throws {
+    app.get("duplicate-header") { _ -> Response in
+        let response = Response(status: .ok)
+        // Dos cabeceras que solo difieren en mayúsculas/minúsculas — HTTP las trata
+        // como el mismo nombre, pero llegan como entradas separadas a
+        // HTTPURLResponse.allHeaderFields en el cliente.
+        response.headers.add(name: "X-Dup", value: "first")
+        response.headers.add(name: "x-dup", value: "second")
         return response
     }
 }

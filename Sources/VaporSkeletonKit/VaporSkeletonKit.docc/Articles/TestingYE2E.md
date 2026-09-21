@@ -78,7 +78,9 @@ let item = try await client.post("items", json: NewItem(name: "Widget"), as: Ite
 
 `send`/`get`/`post`/`put` devuelven una `Response` con `status`, `body`, y también
 `headers` (nombres en minúsculas) — para afirmar sobre `WWW-Authenticate` en un `401`,
-o `Content-Type` en un `200`. `send(_:_:body:contentType:authorization:)` acepta un
+o `Content-Type` en un `200`. Si el servidor responde con dos cabeceras que solo
+difieren en mayúsculas/minúsculas, se queda con la última — nunca crashea por una
+colisión de claves al normalizar. `send(_:_:body:contentType:authorization:)` acepta un
 `contentType` explícito (`application/json` por defecto) — la única vía para probar que
 el servidor rechaza correctamente un `Content-Type` incompatible en vez de intentar
 decodificarlo. `put`/`put(encoding:)` existen junto a los `post` ya vistos, para
