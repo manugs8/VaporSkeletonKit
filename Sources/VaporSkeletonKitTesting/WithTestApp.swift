@@ -24,7 +24,9 @@ import Vapor
 ///     paquete de autenticación para "desactivar auth en tests". Vacío por defecto:
 ///     esta función no asume ningún paquete de autenticación ni nombre de variable en
 ///     concreto, igual que `makePostgresConfiguration` no lee `Environment` por sí
-///     misma.
+///     misma. Cada variable se restaura a su valor previo (o se elimina, si no existía)
+///     al terminar `test` — incluso si lanza —, para no dejar el proceso (y los tests
+///     que se ejecuten después en él) contaminado con el valor usado aquí.
 ///   - configure: Configura la `Application` (base de datos, migraciones, rutas, etc.),
 ///     exactamente igual que el propio `configure(_:)` de un proyecto.
 ///   - test: El cuerpo del test a ejecutar con la aplicación real y ya migrada.
@@ -33,6 +35,22 @@ public func withTestApp(
     configure: (Application) async throws -> Void,
     test: (Application) async throws -> Void
 ) async throws {
+    // Captura el valor previo (o su ausencia) de cada variable antes de pisarla, para
+    // poder restaurar el entorno del proceso exactamente como estaba al terminar —
+    // setenv no revierte solo, y este proceso puede seguir ejecutando más tests después.
+    let originalValues = environment.keys.reduce(into: [String: String?]()) { result, key in
+        result[key] = ProcessInfo.processInfo.environment[key]
+    }
+    defer {
+        for (key, originalValue) in originalValues {
+            if let originalValue {
+                setenv(key, originalValue, 1)
+            } else {
+                unsetenv(key)
+            }
+        }
+    }
+
     for (key, value) in environment {
         setenv(key, value, 1)
     }
