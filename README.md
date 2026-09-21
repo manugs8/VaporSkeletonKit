@@ -266,7 +266,9 @@ sea seguro enlazarlo desde un target de seed determinista:
 ```
 
 `E2EEnvironment.baseURL` lee `E2E_BASE_URL`, con la dirección local por defecto de
-`swift run` como valor por defecto (`http://127.0.0.1:8080`).
+`swift run` como valor por defecto (`http://127.0.0.1:8080`). Si `E2E_BASE_URL` está
+definida pero no es una URL válida, falla rápido con un mensaje que indica el valor
+recibido, en vez de un crash silencioso o de caer en el valor por defecto.
 
 `E2EHTTPClient` es un cliente REST mínimo. Igual que `makePostgresConfiguration`, nunca
 asume un paquete de autenticación concreto: `authToken` es un closure que produce el
