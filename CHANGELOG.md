@@ -6,6 +6,8 @@ Todos los cambios notables de este paquete se documentan aquí. El formato sigue
 
 ## [Sin publicar]
 
+## [2.0.1] - 2026-09-21
+
 ### Añadido
 
 - `POST /_test/fault` (y `E2EHTTPClient.armFault`) aceptan un `body` (y opcionalmente
@@ -138,7 +140,8 @@ Extracción inicial desde `BackendSkeleton`:
   (`VaporSkeletonKitE2ESupport`).
 - Catálogo DocC en español con artículos y tutoriales.
 
-[Sin publicar]: https://github.com/manugs8/VaporSkeletonKit/compare/2.0.0...main
+[Sin publicar]: https://github.com/manugs8/VaporSkeletonKit/compare/2.0.1...main
+[2.0.1]: https://github.com/manugs8/VaporSkeletonKit/compare/2.0.0...2.0.1
 [2.0.0]: https://github.com/manugs8/VaporSkeletonKit/compare/1.3.5...2.0.0
 [1.3.5]: https://github.com/manugs8/VaporSkeletonKit/compare/1.3.4...1.3.5
 [1.3.1] - [1.3.4]: https://github.com/manugs8/VaporSkeletonKit/compare/1.3.0...1.3.4
