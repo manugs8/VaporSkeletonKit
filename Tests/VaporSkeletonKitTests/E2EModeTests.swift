@@ -1,3 +1,4 @@
+import Fluent
 import Foundation
 import Testing
 import Vapor
@@ -8,7 +9,11 @@ import Vapor
 /// ninguna barrera real contra activarse en producción, pese a lo que la
 /// documentación afirmaba; y `Scenery` (nombre de dominio incorrecto en inglés) se
 /// renombró a `Scenario` en toda la API pública, incluido el campo JSON.
-@Suite("E2E Mode")
+///
+/// `.serialized`: los tests de `reset:` migran/revierten la misma tabla
+/// (`e2e_mode_reset_widgets`) contra el Postgres real y compartido de esta suite — en
+/// paralelo se pisarían entre sí en `_fluent_migrations`.
+@Suite("E2E Mode", .serialized)
 struct E2EModeTests {
     @Test("Refuses to activate when app.environment is production")
     func refusesInProduction() async throws {
@@ -93,6 +98,142 @@ struct E2EModeTests {
             throw error
         }
         try await app.asyncShutdown()
+    }
+
+    /// Ver "registerE2EMode / POST /e2e/prepare" en "Tests que faltan" de
+    /// `docs/InformeDeAuditoria.md`: `reset: true` nunca se había probado contra una
+    /// base de datos real — solo que la petición despachaba al `scenarioFactory`.
+    @Test("POST /e2e/prepare with reset:true actually truncates application tables")
+    func resetTrueTruncatesRealData() async throws {
+        guard ProcessInfo.processInfo.environment["CI"] == "true"
+            || ProcessInfo.processInfo.environment["DATABASE_URL"] != nil
+        else {
+            return
+        }
+        let app = try await Application.make(.testing)
+        do {
+            try configureTestDatabase(app)
+            app.migrations.add(CreateWidget())
+            try await app.autoMigrate()
+
+            try await Widget(name: "before-reset").save(on: app.db)
+            #expect(try await Widget.query(on: app.db).count() == 1)
+
+            try registerE2EMode(app, scenarioFactory: RecordingScenarioFactory(recorder: Recorder()))
+
+            try await app.testing().test(
+                .POST, "e2e/prepare",
+                beforeRequest: { req in
+                    try req.content.encode(PrepareScenarioRequest(scenario: "empty_dashboard", reset: true))
+                },
+                afterResponse: { res async in
+                    #expect(res.status == .ok)
+                }
+            )
+
+            #expect(try await Widget.query(on: app.db).count() == 0)
+
+            // _fluent_migrations no se trunca (excluida explícitamente en la query
+            // TRUNCATE de E2EMode.swift) — si se hubiera truncado, Fluent no sabría
+            // que CreateWidget ya se aplicó y volvería a intentar el CREATE TABLE de
+            // su prepare(), que lanzaría por tabla duplicada.
+            try await app.autoMigrate()
+        } catch {
+            try? await app.autoRevert()
+            try? await app.asyncShutdown()
+            throw error
+        }
+        try await app.autoRevert()
+        try await app.asyncShutdown()
+    }
+
+    @Test("POST /e2e/prepare with reset:false leaves application tables untouched")
+    func resetFalseLeavesDataUntouched() async throws {
+        guard ProcessInfo.processInfo.environment["CI"] == "true"
+            || ProcessInfo.processInfo.environment["DATABASE_URL"] != nil
+        else {
+            return
+        }
+        let app = try await Application.make(.testing)
+        do {
+            try configureTestDatabase(app)
+            app.migrations.add(CreateWidget())
+            try await app.autoMigrate()
+
+            try await Widget(name: "untouched").save(on: app.db)
+            #expect(try await Widget.query(on: app.db).count() == 1)
+
+            try registerE2EMode(app, scenarioFactory: RecordingScenarioFactory(recorder: Recorder()))
+
+            try await app.testing().test(
+                .POST, "e2e/prepare",
+                beforeRequest: { req in
+                    try req.content.encode(PrepareScenarioRequest(scenario: "empty_dashboard", reset: false))
+                },
+                afterResponse: { res async in
+                    #expect(res.status == .ok)
+                }
+            )
+
+            #expect(try await Widget.query(on: app.db).count() == 1)
+            #expect(try await Widget.query(on: app.db).first()?.name == "untouched")
+        } catch {
+            try? await app.autoRevert()
+            try? await app.asyncShutdown()
+            throw error
+        }
+        try await app.autoRevert()
+        try await app.asyncShutdown()
+    }
+}
+
+/// Mismos nombres de variable `DATABASE_*` que `HealthRouteTests`/`WithTestAppTests` —
+/// ver el comentario de esas suites para el razonamiento completo.
+private func configureTestDatabase(_ app: Application) throws {
+    app.databases.use(
+        try makePostgresConfiguration(from: PostgresEnvironmentConfig(
+            databaseURL: Environment.get("DATABASE_URL"),
+            host: Environment.get("DATABASE_HOST") ?? "localhost",
+            port: Environment.get("DATABASE_PORT").flatMap(Int.init) ?? 5432,
+            username: Environment.get("DATABASE_USERNAME") ?? "postgres",
+            password: Environment.get("DATABASE_PASSWORD") ?? "postgres",
+            database: Environment.get("DATABASE_NAME") ?? "postgres",
+            tlsDisabled: Environment.get("DATABASE_TLS") != "require"
+        )),
+        as: .psql
+    )
+}
+
+/// Una tabla de aplicación mínima contra la que ejercitar `reset: true`/`false` —
+/// cualquier modelo real serviría, lo único que importa es que viva en el schema
+/// `public` junto a `_fluent_migrations`.
+private final class Widget: Model, @unchecked Sendable {
+    static let schema = "e2e_mode_reset_widgets"
+
+    @ID(key: .id) var id: UUID?
+    @Field(key: "name") var name: String
+
+    init() {}
+    init(id: UUID? = nil, name: String) {
+        self.id = id
+        self.name = name
+    }
+}
+
+private struct CreateWidget: AsyncMigration {
+    // Fluent deriva el nombre por defecto a partir del tipo — un nombre explícito es
+    // obligatorio para una migración `private` (el contexto mangled no vale).
+    var name: String { "CreateWidget" }
+
+    func prepare(on database: any Database) async throws {
+        try await database.schema(Widget.schema)
+            .id()
+            .field("name", .string, .required)
+            .create()
+    }
+
+    func revert(on database: any Database) async throws {
+        try await database.schema(Widget.schema).delete()
     }
 }
 
