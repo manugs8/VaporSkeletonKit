@@ -1,5 +1,7 @@
+import Fluent
 import MCP
 import Vapor
+import VaporSkeletonKitMCP
 
 struct ListWidgetsTool: MCPTool {
     let app: Application

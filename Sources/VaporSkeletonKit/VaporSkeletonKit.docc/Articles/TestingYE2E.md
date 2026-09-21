@@ -1,7 +1,8 @@
 # Testing y E2E
 
 Los tres niveles de testing que sigue todo proyecto construido con este kit, y qué
-utilidades aporta `VaporSkeletonKitTesting` (o `VaporSkeletonKitMCPTesting`)/`VaporSkeletonKitE2ESupport` en cada uno.
+utilidades aportan `VaporSkeletonKitTesting`/`VaporSkeletonKitE2ESupport` (y sus
+equivalentes MCP, `VaporSkeletonKitMCPTesting`/`VaporSkeletonKitMCPE2ESupport`) en cada uno.
 
 ## Tres niveles, cada uno probando lo que el anterior no puede
 
@@ -21,7 +22,7 @@ real.
 
 ## Integración: `withTestApp` + Postgres real
 
-`withTestApp(environment:configure:test:)` (de `VaporSkeletonKitTesting` (o `VaporSkeletonKitMCPTesting`)) arranca una `Application` de test real,
+`withTestApp(environment:configure:test:)` (de `VaporSkeletonKitTesting`) arranca una `Application` de test real,
 ejecuta el `configure(_:)` del propio proyecto, migra, ejecuta el test, y **siempre**
 revierte las migraciones y apaga la app — incluso si `configure` o el test lanzan un
 error:
@@ -41,7 +42,7 @@ restaura a su valor previo (o se elimina, si no existía) al terminar el test �
 si lanza —, así que no deja contaminado el proceso para los tests que se ejecuten
 después en él.
 
-`sendMCP(_:_:path:)` complementa a `withTestApp` para probar el servidor MCP montado
+`sendMCP(_:_:path:)` (de `VaporSkeletonKitMCPTesting`) complementa a `withTestApp` para probar el servidor MCP montado
 sobre esa misma `Application` de test, enviando una petición JSON-RPC tipada y
 decodificando la respuesta tipada:
 
@@ -56,7 +57,7 @@ let tools = try response.result.get().tools
 Fluent —, porque una suite E2E no necesita la pila del servidor: habla con un servidor
 que **ya está corriendo**, en otro proceso (o en otro contenedor por completo).
 
-`E2EEnvironment.baseURL` (de `VaporSkeletonKitE2ESupport` (o `VaporSkeletonKitMCPE2ESupport`)) lee `E2E_BASE_URL`, con la dirección local de `swift run`
+`E2EEnvironment.baseURL` (de `VaporSkeletonKitE2ESupport`) lee `E2E_BASE_URL`, con la dirección local de `swift run`
 como valor por defecto, para que las mismas pruebas funcionen tanto contra un servidor
 arrancado a mano en local o los equivalentes en CI.
 
@@ -98,7 +99,9 @@ cual contra un endpoint de creación que responde `201 Created`, sin tener que c
 para paginación/filtros. `path` se trata siempre como un componente de ruta literal —
 `baseURL.appendingPathComponent(path)` escapa `?`/`&`/`=` como caracteres normales de
 ruta, así que un `path` como `"items?filter=x"` nunca llega como query string al
-servidor; hay que pasarlo por `query:`, que se adjunta vía `URLComponents`:
+servidor; hay que pasarlo por `query:`, que se adjunta vía `URLComponents` escapando
+también `+` (que el servidor decodificaría como un espacio, p. ej. en el offset `+02:00`
+de una fecha usada como filtro):
 
 ```swift
 let response = try await client.get(
@@ -106,7 +109,7 @@ let response = try await client.get(
 )
 ```
 
-`E2EMCPClient` construye un `MCP.Client` real sobre `HTTPClientTransport` — un cliente
+`E2EMCPClient` (de `VaporSkeletonKitMCPE2ESupport`) construye un `MCP.Client` real sobre `HTTPClientTransport` — un cliente
 MCP genuino, hablando HTTP/JSON-RPC real, exactamente como lo haría un agente externo:
 
 ```swift
@@ -128,9 +131,10 @@ conexión MCP es de larga duración, a diferencia de una petición REST suelta.
 Los propios tests de `VaporSkeletonKitE2ESupportTests` en este repo necesitan un
 servidor real escuchando para poder ejercitar `E2EHTTPClient`/`E2EMCPClient` de verdad
 — no tendría sentido probar un cliente HTTP contra una `Application` en proceso, que es
-justo lo que este cliente existe para evitar. `withRunningServer(port:mount:test:)`
-arranca una `Application` real, la vincula a un socket TCP real en
-`127.0.0.1:port`, y garantiza su desmontaje al terminar — la única pieza de este
+justo lo que este cliente existe para evitar. `withRunningServer(mount:test:)`
+arranca una `Application` real, la vincula a un socket TCP real en un puerto efímero
+de `127.0.0.1` (`port: 0`, asignado por el SO — igual que `withE2EServer`, para que los
+tests en paralelo nunca colisionen), y garantiza su desmontaje al terminar — la única pieza de este
 artículo que no forma parte de la API pública del kit, porque es un detalle interno de
 cómo este mismo repo se testea a sí mismo.
 
@@ -178,25 +182,30 @@ try await withE2EServer(
 }
 ```
 
-(Versión completa, compilada y ejercitada de verdad en cada `swift test`: `WithE2EServerTests` en este mismo repo.)
+(Versión completa, compilada en cada `swift test` y ejercitada contra un Postgres real con `CI=true swift test`: `WithE2EServerTests` en este mismo repo.)
 
-Es especialmente útil para habilitar la concurrencia verdadera (como la que exige el framework `Swift Testing`) de tests funcionales E2E sin que estos se pisen las bases de datos ni arrojen errores de `Port 8080 is already in use`. El bloque subyacente interactúa como *Root* frente a Postgres creando una **base de datos temporal aleatoria** (vía UUID, de ahí el parámetro delegado `dynamicDB`) y se ocupa posteriormente de ejecutar `DROP DATABASE` al terminar el hilo, incluso si surge un crash.
+Es especialmente útil para habilitar la concurrencia verdadera (como la que exige el framework `Swift Testing`) de tests funcionales E2E sin que estos se pisen las bases de datos ni arrojen errores de `Port 8080 is already in use`. El bloque subyacente interactúa como *Root* frente a Postgres creando una **base de datos temporal aleatoria** (vía UUID, de ahí el parámetro delegado `dynamicDB`) y se ocupa posteriormente de ejecutar `DROP DATABASE` al terminar, tanto si el test acaba bien como si lanza un error (no si el proceso entero muere, p. ej. por un `fatalError`: ahí la base de datos `e2e_…` queda huérfana y hay que borrarla a mano).
 
 ## Inyección de Fallos y modo E2E
 
 Para simular fallos 500, timeouts o comportamientos impredecibles durante tests E2E y de Integración, el Kit incluye un middleware `TestFaultInjectionMiddleware` que permite *armar* temporalmente un error en una ruta concreta, junto con el endpoint `POST /e2e/prepare` para preparar/resetear estado de base de datos entre tests (ver ``E2EScenario``/``E2EScenarioFactory``). Ambos se activan a la vez con ``registerE2EMode(_:scenarioFactory:)`` — no hay ninguna variable de entorno que los active por su cuenta.
 
-``registerE2EMode(_:scenarioFactory:)`` **se niega a registrar nada** —lanza
-``E2EModeError/refusedInProduction`` en vez de montar ninguna ruta— si
-`app.environment == .production`. Es la única barrera real contra una activación
-accidental: qué condición decide *cuándo* llamar a esta función (una variable de
-entorno propia del proyecto, un flag de build...) sigue siendo responsabilidad del
-proyecto consumidor, pero un error en esa condición ya no puede exponer
-`/e2e/prepare` (que puede truncar todas las tablas del schema) ni `/_test/fault` en
-un despliegue real — el error de configuración se convierte en un fallo de arranque
-explícito, capturado por ``runApp(configure:)`` igual que cualquier otro error de
-`configure(_:)` (ver <doc:ArranqueDeLaApp>), en lugar de un servidor de producción con
-estas rutas abiertas:
+Este código vive en el módulo de producción `VaporSkeletonKit` (la carpeta
+`TestSupport` no es un producto aparte) a propósito: las suites E2E se ejecutan contra el
+mismo artefacto que se despliega, sin una compilación específica para E2E, así que el
+binario tiene que poder montar estas rutas. Lo que garantiza que nunca estén disponibles
+en producción es la barrera de ``registerE2EMode(_:scenarioFactory:)``:
+**solo se activa cuando `app.environment == .testing`** (`serve --env testing`,
+`VAPOR_ENV=testing` o `Application.make(.testing)`). En cualquier otro entorno lanza
+``E2EModeError/requiresTestingEnvironment(current:)`` en vez de montar ninguna ruta —
+incluido `.development`, el que usa `Environment.detect()` cuando el proceso arranca sin
+`--env`, de modo que un despliegue de producción que olvide declararse como tal tampoco
+las expone. Qué condición decide *cuándo* llamar a esta función (una variable de entorno
+propia del proyecto, p. ej.) sigue siendo responsabilidad del proyecto consumidor, pero
+un error en esa condición ya no puede exponer `/e2e/prepare` (que puede truncar todas las
+tablas del schema) ni `/_test/fault` en un despliegue real: se convierte en un fallo de
+arranque explícito, capturado por ``runApp(configure:)`` igual que cualquier otro error
+de `configure(_:)` (ver <doc:ArranqueDeLaApp>):
 
 ```swift
 func configure(_ app: Application) async throws {
@@ -224,4 +233,5 @@ try await client.armFault(method: "GET", path: "/owners", status: 500)
 `/_test/fault` valida lo que recibe: `status` debe estar en `100...599` y
 `delayMilliseconds` en `0...30000` (30 segundos) — un valor fuera de rango responde
 `400 Bad Request` sin armar nada, en vez de aceptar un status HTTP inválido o dejar que
-un test arme un delay desmedido que cuelgue la suite entera.
+un test arme un delay desmedido que cuelgue la suite entera. Un cuerpo que no se puede
+decodificar (p. ej. sin `status`) también responde `400`.

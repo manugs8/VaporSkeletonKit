@@ -1,6 +1,6 @@
 # Arquitectura general
 
-Dónde encaja `VaporSkeletonKit` entre tu proyecto, `WorkOSBearerAuth` y el soporte para pruebas locales.
+Dónde encaja `VaporSkeletonKit` entre tu proyecto, `WorkOSBearerAuth` y los productos de soporte para pruebas.
 
 ## Descripción general
 
@@ -8,10 +8,11 @@ Dónde encaja `VaporSkeletonKit` entre tu proyecto, `WorkOSBearerAuth` y el sopo
 en un backend Vapor debería vivir en un único sitio, versionado, con sus propios tests,
 en lugar de copiado y pegado en cada proyecto nuevo.
 
-![Arquitectura general: el proyecto consumidor en la parte superior, con WorkOSBearerAuth, VaporSkeletonKit y el TestSupport debajo, y los tres productos SPM de VaporSkeletonKit en la base.](arquitectura-general)
+![Arquitectura general: el proyecto consumidor en la parte superior, con WorkOSBearerAuth, VaporSkeletonKit y los productos de soporte de tests debajo, y los tres productos SPM base de VaporSkeletonKit (más sus equivalentes MCP) en la base.](arquitectura-general)
 
 Un proyecto consumidor solo escribe tres cosas: su `configure(_:)`, sus modelos/rutas de
-dominio, y el wrapper delgado que conecta el paquete de TestSupport. Todo lo demás — arrancar la app, hablar con Postgres,
+dominio, y el wrapper delgado que conecta sus tests con `VaporSkeletonKitTesting`/
+`VaporSkeletonKitE2ESupport`. Todo lo demás — arrancar la app, hablar con Postgres,
 servir `/docs`, montar MCP, comprobar salud, y el soporte para pruebas locales — vive aquí.
 
 ## Seis productos SPM, con dependencias deliberadas entre sí
@@ -23,10 +24,10 @@ tres equivalentes para MCP, que dependen de las primeras en vez de duplicarlas:
 | Producto | Se enlaza en | Depende de |
 |---|---|---|
 | `VaporSkeletonKit` | El target de la app, en producción | Vapor, Fluent, FluentPostgresDriver |
-| `VaporSkeletonKitTesting` | El target de tests de integración | Vapor, Fluent, VaporTesting |
+| `VaporSkeletonKitTesting` | El target de tests de integración | VaporSkeletonKit, VaporSkeletonKitE2ESupport, Vapor, Fluent, VaporTesting |
 | `VaporSkeletonKitE2ESupport` | Targets de tests E2E / seed | Ningún framework de servidor |
 | `VaporSkeletonKitMCP` | El target de la app, si exportas MCP | VaporSkeletonKit, Vapor, swift-sdk (MCP) |
-| `VaporSkeletonKitMCPTesting` | Tests de integración de MCP | VaporSkeletonKitTesting, MCP |
+| `VaporSkeletonKitMCPTesting` | Tests de integración de MCP | VaporSkeletonKitTesting, VaporSkeletonKitMCP, MCP, VaporTesting |
 | `VaporSkeletonKitMCPE2ESupport`| Tests E2E de MCP | VaporSkeletonKitE2ESupport, MCP |
 
 Que sean múltiples productos y no uno solo importa: `VaporSkeletonKitTesting` nunca se enlaza

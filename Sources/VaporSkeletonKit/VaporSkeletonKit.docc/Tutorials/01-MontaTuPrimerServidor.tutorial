@@ -10,8 +10,8 @@
 
     @Section(title: "Declara la dependencia") {
         @ContentAndMedia {
-            Todo empieza en `Package.swift`: un target ejecutable que depende de Vapor y
-            de `VaporSkeletonKit`.
+            Todo empieza en `Package.swift`: un target ejecutable que depende de Vapor,
+            de Fluent con su driver de Postgres, y de `VaporSkeletonKit`.
 
             @Image(source: "flujo-arranque", alt: "Diagrama del arranque de la app, desde Package.swift hasta GET /health respondiendo 200 OK.")
         }
@@ -19,7 +19,8 @@
         @Steps {
             @Step {
                 Crea un `Package.swift` con un target ejecutable llamado `App`, que
-                dependa tanto de Vapor como de `VaporSkeletonKit`.
+                dependa de Vapor, de `Fluent`/`FluentPostgresDriver` (los importa el
+                `configure.swift` de más abajo) y de `VaporSkeletonKit`.
 
                 @Code(name: "Package.swift", file: "t1-01-package.swift")
             }
