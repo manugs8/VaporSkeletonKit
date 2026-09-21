@@ -36,7 +36,14 @@ public struct GetHealthTool: MCPTool {
     }
 
     public func call(arguments: [String: Value]) async throws -> CallTool.Result {
-        let status = await app.healthChecker.check(on: app.db)
+        let status: HealthStatus
+        // app.db hace fatalError si no hay ninguna base de datos configurada — mismo
+        // motivo que en registerHealthRoute(_:).
+        if app.databases.ids().isEmpty {
+            status = HealthStatus(isHealthy: false, message: "No database configured.")
+        } else {
+            status = await app.healthChecker.check(on: app.db)
+        }
         return try CallTool.Result(
             content: [.text(text: status.message, annotations: nil, _meta: nil)],
             structuredContent: status

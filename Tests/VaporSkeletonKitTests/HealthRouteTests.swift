@@ -53,6 +53,27 @@ struct HealthRouteTests {
         }
         try await app.asyncShutdown()
     }
+
+    @Test("Reports unhealthy and 503 when no database is configured, instead of crashing")
+    func unhealthyWhenNoDatabaseConfigured() async throws {
+        let app = try await Application.make(.testing)
+        do {
+            // A propósito, ninguna llamada a configureTestDatabase(app) — este test
+            // existe justo para probar el caso "cero bases de datos registradas",
+            // donde req.db haría fatalError sin la guarda de registerHealthRoute(_:).
+            registerHealthRoute(app)
+
+            try await app.testing().test(.GET, "health") { res async throws in
+                #expect(res.status == .serviceUnavailable)
+                let status = try res.content.decode(HealthStatus.self)
+                #expect(status.isHealthy == false)
+            }
+        } catch {
+            try? await app.asyncShutdown()
+            throw error
+        }
+        try await app.asyncShutdown()
+    }
 }
 
 /// Configura una conexión Postgres real para esta suite — `registerHealthRoute` lee
