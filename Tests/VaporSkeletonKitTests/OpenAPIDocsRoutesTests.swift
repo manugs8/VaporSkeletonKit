@@ -57,6 +57,7 @@ struct OpenAPIDocsRoutesTests {
             try await app.testing().test(.GET, "openapi.yaml") { res async throws in
                 #expect(res.status == .ok)
                 #expect(res.body.string == yaml)
+                #expect(res.headers.contentType == HTTPMediaType(type: "application", subType: "yaml"))
             }
         } catch {
             try? await app.asyncShutdown()
