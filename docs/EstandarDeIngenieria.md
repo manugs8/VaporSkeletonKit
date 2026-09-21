@@ -372,10 +372,12 @@ deliberadamente inalcanzable, y sin ejecutar migraciones. Solo los escenarios qu
 necesitan observar ese fallo apuntan a esta segunda instancia; el resto sigue contra la
 principal.
 
-Debe evitarse cualquier vía de test (endpoint o variable de entorno que desactive la
-conexión bajo demanda) dentro del código de producción para provocar el fallo — la
-orquestación debe ser externa al artefacto, igual que exige §14-17 para cualquier otro
-mecanismo de prueba.
+Para *este* escenario no debe añadirse ninguna vía de test (endpoint o variable de
+entorno que desactive la conexión bajo demanda) dentro del artefacto: el fallo de base de
+datos se provoca desde fuera, con la segunda instancia descrita arriba. Los fallos que sí
+pueden inyectarse desde dentro — un status o un retardo forzados en una ruta concreta
+(`/_test/fault`) — y la preparación de estado (`/e2e/prepare`) solo se permiten bajo las
+condiciones de §15.
 
 ---
 
@@ -416,8 +418,12 @@ pipelines remotos.
 
 # 13. Despliegue en Render
 
-Render debe ejecutar el mismo artefacto de aplicación que ha sido validado por CI: merge
-→ build → tests → despliegue en Render → smoke test → éxito.
+Render debe ejecutar el mismo artefacto de aplicación que ha sido validado en local
+(§12): build → tests → merge → despliegue en Render → smoke test → éxito.
+
+El artefacto de producción debe arrancar explícitamente como producción
+(`serve --env production` o `VAPOR_ENV=production`) — Vapor usa `.development` por
+defecto —, y las instancias E2E de ese mismo artefacto con `--env testing` (§15).
 
 Si el despliegue falla o falla el smoke test, el proceso de despliegue debe proporcionar
 un procedimiento definido de rollback o recuperación. La configuración exacta de Render
@@ -451,6 +457,22 @@ ejecutan código no confiable.
 
 La infraestructura local debe priorizar credenciales de corta duración o con permisos
 limitados siempre que la plataforma lo permita.
+
+**Rutas de prueba dentro del artefacto.** Como las suites E2E se ejecutan contra el mismo
+artefacto que se despliega (§2.2, §10), las rutas de apoyo a los tests (inyección de
+fallos, preparación de estado) forman parte del binario de producción. Solo son
+aceptables si:
+
+* están inactivas por defecto, y solo las monta una activación explícita del proyecto
+  (p. ej. una variable de entorno propia);
+* aun con esa activación, se niegan a montarse fuera del entorno `testing`: la instancia
+  E2E arranca con `--env testing`, y cualquier otro entorno — incluido `development`, el
+  que usa Vapor si el proceso arranca sin `--env` — hace fallar el arranque en vez de
+  exponerlas (*fail-closed*), de modo que un despliegue de producción mal configurado
+  nunca las sirve;
+* nunca permiten desactivar dependencias reales bajo demanda (§9.5).
+
+`registerE2EMode` de `VaporSkeletonKit` cumple estas tres condiciones.
 
 ---
 

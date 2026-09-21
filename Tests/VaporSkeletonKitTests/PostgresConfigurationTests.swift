@@ -3,12 +3,10 @@ import Testing
 
 @testable import VaporSkeletonKit
 
-/// Ver "PostgresConfigurationTests" en la sección "Cobertura parcial" de
-/// `docs/InformeDeAuditoria.md`: los tests de `makePostgresConfiguration` solo
-/// comprobaban "no lanza" — un bug que intercambiara usuario y contraseña, o
-/// ignorara `port`, pasaría en verde. `dumpedConfiguration(_:)` hace transparente el
-/// `DatabaseConfigurationFactory` opaco que devuelve la función para poder afirmar
-/// sobre su contenido real.
+/// Comprobar solo que `makePostgresConfiguration` "no lanza" dejaría pasar en verde un
+/// bug que intercambiara usuario y contraseña, o ignorara `port`.
+/// `dumpedConfiguration(_:)` hace transparente el `DatabaseConfigurationFactory` opaco
+/// que devuelve la función para poder afirmar sobre su contenido real.
 @Suite("Postgres Configuration")
 struct PostgresConfigurationTests {
     @Test("Throws missingDatabaseEnvironment when neither databaseURL nor discrete fields are set")

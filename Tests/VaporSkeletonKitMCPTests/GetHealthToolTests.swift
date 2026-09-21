@@ -4,9 +4,9 @@ import Vapor
 @testable import VaporSkeletonKit
 @testable import VaporSkeletonKitMCP
 
-/// Ver V8 en `docs/InformeDeAuditoria.md`: `app.db` hace `fatalError` si no hay ninguna
-/// base de datos configurada — `GetHealthTool` (como `registerHealthRoute(_:)`) ahora lo
-/// comprueba antes en vez de tumbar el proceso entero por un endpoint de diagnóstico.
+/// `app.db` hace `fatalError` si no hay ninguna base de datos configurada —
+/// `GetHealthTool` (como `registerHealthRoute(_:)`) lo comprueba antes, en vez de tumbar
+/// el proceso entero por una herramienta de diagnóstico.
 @Suite("Get Health Tool")
 struct GetHealthToolTests {
     @Test("Reports unhealthy when no database is configured, instead of crashing")
@@ -28,9 +28,8 @@ struct GetHealthToolTests {
         try await app.asyncShutdown()
     }
 
-    /// Requiere una base de datos real registrada: `app.healthChecker` decide el
-    /// resultado, pero `app.databases.ids().isEmpty` (el único guard) sigue exigiendo
-    /// que exista *alguna*, igual que en `HealthRouteTests`.
+    /// Requiere un Postgres real y alcanzable: `DatabaseHealthChecker` ejecuta de verdad
+    /// `SELECT 1` contra él.
     @Test(
         "Reports healthy when the database is reachable",
         .enabled(if: hasRealPostgresConfigured, dbSkipReason)
@@ -66,12 +65,10 @@ struct GetHealthToolTests {
     /// herramienta (`isError`): quien llama ha recibido con éxito la respuesta a "¿está
     /// sana la base de datos?", aunque la respuesta sea "no".
     ///
-    /// Necesita el mismo guard que `healthyWithRealDatabase`: `configureTestDatabase`
-    /// exige un Postgres real aunque el resultado lo decida el stub.
-    @Test(
-        "Reports unhealthy, without isError, when the checker fails",
-        .enabled(if: hasRealPostgresConfigured, dbSkipReason)
-    )
+    /// Sin guard, a diferencia de `healthyWithRealDatabase`: `configureTestDatabase` solo
+    /// registra la base de datos (no conecta), y el stub nunca la consulta — no hace
+    /// falta ningún Postgres alcanzable.
+    @Test("Reports unhealthy, without isError, when the checker fails")
     func unhealthyWhenCheckerFails() async throws {
         let app = try await Application.make(.testing)
         do {
@@ -124,10 +121,9 @@ private struct StubHealthChecker: HealthChecking {
     }
 }
 
-/// Política de skip unificada para toda suite que necesite un Postgres real — ver
-/// "Calidad de los tests existentes" en `docs/InformeDeAuditoria.md`. `.enabled(if:)`
-/// (en vez de un `guard ... else { return }` dentro del test) hace que Swift Testing
-/// reporte estos tests como *skipped* en vez de como un verde engañoso.
+/// Política de skip unificada para toda suite que necesite un Postgres real.
+/// `.enabled(if:)` (en vez de un `guard ... else { return }` dentro del test) hace que
+/// Swift Testing reporte estos tests como *skipped* en vez de como un verde engañoso.
 private let hasRealPostgresConfigured =
     ProcessInfo.processInfo.environment["CI"] == "true" || ProcessInfo.processInfo.environment["DATABASE_URL"] != nil
 

@@ -139,6 +139,12 @@ public struct E2EHTTPClient: Sendable {
             return pathURL
         }
         components.queryItems = query
+        // URLComponents deja `+` sin escapar en la query (es legal según RFC 3986), pero
+        // Vapor —como casi cualquier servidor, siguiendo application/x-www-form-urlencoded—
+        // lo decodifica como un espacio: un `from=2026-09-21T10:00:00+02:00` llegaría como
+        // `...10:00:00 02:00`. Escapado como %2B, el servidor recibe el `+` literal.
+        components.percentEncodedQuery = components.percentEncodedQuery?
+            .replacingOccurrences(of: "+", with: "%2B")
         return components.url ?? pathURL
     }
 

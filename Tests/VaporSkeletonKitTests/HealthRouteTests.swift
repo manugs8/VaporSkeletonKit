@@ -33,16 +33,11 @@ struct HealthRouteTests {
     /// comprobación de base de datos concreta — el stub inyectado decide el resultado
     /// independientemente de `req.db`.
     ///
-    /// Sigue necesitando `configureTestDatabase(app)` (y por tanto el mismo guard):
-    /// `registerHealthRoute` lee `req.db` incondicionalmente, así que sin ninguna base
-    /// de datos registrada fallaría antes de llegar siquiera al stub. Antes de
-    /// unificar la política de skip (ver "Calidad de los tests existentes" en
-    /// `docs/InformeDeAuditoria.md`) este test no tenía guard — fallaba sin red/Postgres,
-    /// inconsistente con `healthyWithRealDatabase` en el mismo fichero.
-    @Test(
-        "Reports unhealthy and 503 when the checker fails",
-        .enabled(if: hasRealPostgresConfigured, dbSkipReason)
-    )
+    /// Necesita *alguna* base de datos registrada (sin ninguna, `registerHealthRoute`
+    /// responde "No database configured." sin consultar al checker), pero no un
+    /// Postgres alcanzable: `databases.use(...)` no abre ninguna conexión, y el stub
+    /// nunca consulta `req.db`. Por eso no lleva el guard de `hasRealPostgresConfigured`.
+    @Test("Reports unhealthy and 503 when the checker fails")
     func unhealthyWhenCheckerFails() async throws {
         let app = try await Application.make(.testing)
         do {
@@ -85,17 +80,15 @@ struct HealthRouteTests {
     }
 }
 
-/// Configura una conexión Postgres real para esta suite — `registerHealthRoute` lee
-/// `req.db` incondicionalmente (incluso el test con stub de abajo necesita *alguna*
-/// base de datos configurada, ya que el stub solo ignora su *resultado*, no si
-/// `req.db` llega a resolverse).
+/// Registra una conexión Postgres para esta suite. Registrarla no conecta: solo los
+/// tests que llegan a consultar `req.db` de verdad (`healthyWithRealDatabase`)
+/// necesitan un Postgres alcanzable, y por eso son los únicos con guard.
 ///
-/// Mismos nombres de variable `DATABASE_*` que se usan localmente y en entornos
-/// cualquier proyecto consumidor (§5.2), así que esta suite se ejecuta sin
-/// modificaciones en local. Sin ninguna variable de entorno establecida, usa por
-/// defecto un Postgres local sencillo en `localhost` con TLS desactivado — la
-/// configuración habitual de desarrollo local — en lugar de exigir TLS, a diferencia
-/// del valor por defecto del propio `configure.swift`; sobreescribe con
+/// Mismos nombres de variable `DATABASE_*` que usa cualquier proyecto consumidor, así
+/// que esta suite se ejecuta sin modificaciones en local. Sin ninguna variable de
+/// entorno establecida, usa por defecto un Postgres local sencillo en `localhost` con
+/// TLS desactivado — la configuración habitual de desarrollo local — en lugar de exigir
+/// TLS, a diferencia del valor por defecto del propio `configure.swift`; sobreescribe con
 /// `DATABASE_TLS=require` para el comportamiento más estricto.
 private func configureTestDatabase(_ app: Application) throws {
     app.databases.use(
@@ -123,10 +116,9 @@ private struct StubHealthChecker: HealthChecking {
     }
 }
 
-/// Política de skip unificada para toda suite que necesite un Postgres real — ver
-/// "Calidad de los tests existentes" en `docs/InformeDeAuditoria.md`. `.enabled(if:)`
-/// (en vez de un `guard ... else { return }` dentro del test) hace que Swift Testing
-/// reporte estos tests como *skipped* en vez de como un verde engañoso.
+/// Política de skip unificada para toda suite que necesite un Postgres real.
+/// `.enabled(if:)` (en vez de un `guard ... else { return }` dentro del test) hace que
+/// Swift Testing reporte estos tests como *skipped* en vez de como un verde engañoso.
 let hasRealPostgresConfigured =
     ProcessInfo.processInfo.environment["CI"] == "true" || ProcessInfo.processInfo.environment["DATABASE_URL"] != nil
 

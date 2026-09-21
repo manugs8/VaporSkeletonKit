@@ -19,10 +19,19 @@
 
         @Steps {
             @Step {
+                MCP vive en productos aparte de `VaporSkeletonKit`: añade el paquete
+                `swift-sdk` y el producto `VaporSkeletonKitMCP` al target `App`, y un
+                target de tests con `VaporSkeletonKitTesting` y
+                `VaporSkeletonKitMCPTesting` para el último paso.
+
+                @Code(name: "Package.swift", file: "t2-00-package.swift", reset: true)
+            }
+
+            @Step {
                 Añade `mountMCPServer` al final de `configure(_:)`, de momento sin
                 ninguna herramienta.
 
-                @Code(name: "Sources/App/configure.swift", file: "t2-01-configure-mcp.swift")
+                @Code(name: "Sources/App/configure.swift", file: "t2-01-configure-mcp.swift", reset: true)
             }
         }
     }
@@ -37,8 +46,9 @@
 
         @Steps {
             @Step {
-                Crea `Sources/App/Tools/ListWidgetsTool.swift`. `app` llega por
-                inicializador, igual que en `GetHealthTool`, para poder consultar
+                Crea `Sources/App/Tools/ListWidgetsTool.swift` (suponiendo un modelo
+                Fluent `Widget` propio de tu dominio, con un campo `name`). `app` llega
+                por inicializador, igual que en `GetHealthTool`, para poder consultar
                 `app.db` desde `call(arguments:)`.
 
                 @Code(name: "Sources/App/Tools/ListWidgetsTool.swift", file: "t2-02a-tool.swift", reset: true)
@@ -72,7 +82,8 @@
             }
 
             @Step {
-                En tu target de tests (con `VaporSkeletonKitTesting` como dependencia),
+                En tu target de tests (con `VaporSkeletonKitTesting` y
+                `VaporSkeletonKitMCPTesting` como dependencias),
                 usa `withTestApp` para levantar la app y `sendMCP` para llamar a
                 `list_widgets` como lo haría un cliente MCP real.
 

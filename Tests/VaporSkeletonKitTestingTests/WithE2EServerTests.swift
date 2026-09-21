@@ -34,9 +34,8 @@ struct WithE2EServerTests {
         }
     }
 
-    /// Ver "withE2EServer" en "Tests que faltan" de `docs/InformeDeAuditoria.md`: el
-    /// único test existente nunca comprobaba lo que justifica que `withE2EServer`
-    /// exista — que la BD dinámica se elimina de verdad, en éxito y en fallo.
+    /// Lo que justifica que `withE2EServer` exista: que la BD dinámica se elimina de
+    /// verdad, en éxito y en fallo.
     @Test(
         "Drops the ephemeral database once the test body finishes successfully",
         .enabled(if: hasRealPostgresConfigured, dbSkipReason)
@@ -81,6 +80,31 @@ struct WithE2EServerTests {
         #expect(!capturedDatabaseName.isEmpty)
         let stillExists = try await databaseExists(capturedDatabaseName)
         #expect(!stillExists)
+    }
+
+    /// Sin guard a propósito: no necesita ningún Postgres, sino justo lo contrario — uno
+    /// inalcanzable. Si `CREATE DATABASE` falla, `withE2EServer` debe propagar el error
+    /// (apagando la `Application` ya creada) sin llegar a invocar `configure` ni `test`.
+    @Test("Propagates a failure to create the ephemeral database, without running configure or test")
+    func propagatesDatabaseCreationFailure() async throws {
+        var configureRan = false
+        var testRan = false
+        let unreachableMaster = PostgresEnvironmentConfig(
+            databaseURL: nil, host: "127.0.0.1", port: 1, username: "postgres", password: "postgres",
+            database: "postgres", tlsDisabled: true
+        )
+
+        await #expect(throws: (any Error).self) {
+            try await withE2EServer(
+                masterConfig: unreachableMaster,
+                configure: { _, _ in configureRan = true }
+            ) { _ in
+                testRan = true
+            }
+        }
+
+        #expect(!configureRan)
+        #expect(!testRan)
     }
 
     /// Dos invocaciones concurrentes reciben cada una su propia base de datos (vía
@@ -161,8 +185,7 @@ private struct CreateIsolationMarker: AsyncMigration {
 }
 
 /// Política de skip unificada para toda suite de este target que necesite un Postgres
-/// real (aquí y en `WithTestAppTests.swift`) — ver "Calidad de los tests existentes"
-/// en `docs/InformeDeAuditoria.md`. `.enabled(if:)` (en vez de un
+/// real (aquí y en `WithTestAppTests.swift`). `.enabled(if:)` (en vez de un
 /// `guard ... else { return }` dentro del test) hace que Swift Testing reporte estos
 /// tests como *skipped* en vez de como un verde engañoso.
 let hasRealPostgresConfigured =

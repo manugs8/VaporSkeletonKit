@@ -435,6 +435,50 @@ struct MCPHTTPBridgeIntegrationTests {
         try await app.asyncShutdown()
     }
 
+    /// `MCPServerFactory` solo anuncia la capability `resources` si hay algún recurso
+    /// montado (`resources.isEmpty ? nil : .init()`).
+    @Test(
+        "Advertises the resources capability only when resources are mounted",
+        arguments: [false, true]
+    )
+    func advertisesResourcesCapabilityOnlyWhenMounted(withResources: Bool) async throws {
+        let app = try await Application.make(.testing)
+        do {
+            try mountMCPServer(
+                app, name: "TestServer", version: "1.0", instructions: "", tools: [EchoTool()],
+                resources: withResources ? [StaticResource()] : []
+            )
+
+            try await app.test(.POST, "mcp") { req in
+                req.body = .init(string: Self.initializeRequestBody)
+                req.headers.contentType = .json
+                req.headers.replaceOrAdd(name: .accept, value: "application/json")
+            } afterResponse: { res in
+                #expect(res.status == .ok)
+
+                struct InitializeResponse: Decodable {
+                    let result: ResultBody
+                    struct ResultBody: Decodable {
+                        let capabilities: Capabilities
+                    }
+                    struct Capabilities: Decodable {
+                        let tools: Capability?
+                        let resources: Capability?
+                    }
+                    struct Capability: Decodable {}
+                }
+
+                let response = try JSONDecoder().decode(InitializeResponse.self, from: Data(buffer: res.body))
+                #expect(response.result.capabilities.tools != nil)
+                #expect((response.result.capabilities.resources != nil) == withResources)
+            }
+        } catch {
+            try? await app.asyncShutdown()
+            throw error
+        }
+        try await app.asyncShutdown()
+    }
+
     private static let initializeRequestBody = """
         {
             "jsonrpc": "2.0",

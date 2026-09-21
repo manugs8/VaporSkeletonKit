@@ -25,17 +25,19 @@ public struct PrepareScenarioRequest: Content, Sendable {
 }
 
 /// Un fallo al intentar activar el modo E2E en un entorno no seguro.
-public enum E2EModeError: Error, CustomStringConvertible, Sendable {
-    /// `registerE2EMode` se llamó con `app.environment == .production`.
-    case refusedInProduction
+public enum E2EModeError: Error, CustomStringConvertible, Sendable, Equatable {
+    /// `registerE2EMode` se llamó con un `app.environment` distinto de `.testing`;
+    /// `current` es el nombre del entorno recibido.
+    case requiresTestingEnvironment(current: String)
 
     public var description: String {
         switch self {
-        case .refusedInProduction:
-            return "registerE2EMode fue llamado con app.environment == .production. " +
-                "Los endpoints /e2e/prepare (que puede truncar todas las tablas) y " +
-                "/_test/fault nunca deben exponerse en producción — revisa qué " +
-                "condición activa E2E Mode en tu configure(_:)."
+        case .requiresTestingEnvironment(let current):
+            return "registerE2EMode solo se activa con app.environment == .testing, y se " +
+                "llamó con \"\(current)\". Los endpoints /e2e/prepare (que puede truncar " +
+                "todas las tablas) y /_test/fault nunca deben exponerse fuera de un entorno " +
+                "de test — arranca la instancia E2E con --env testing (o VAPOR_ENV=testing), " +
+                "o revisa qué condición activa E2E Mode en tu configure(_:)."
         }
     }
 }
@@ -43,18 +45,25 @@ public enum E2EModeError: Error, CustomStringConvertible, Sendable {
 /// Activa las capacidades del entorno E2E, habilitando tanto la inyección de fallos como el
 /// reseteo y preparación de escenarios en base de datos.
 ///
-/// Se niega a activarse — lanzando ``E2EModeError/refusedInProduction`` en vez de
-/// registrar ninguna ruta — cuando `app.environment == .production`. Es la única
-/// barrera real contra una activación accidental: la condición que decide *cuándo*
-/// llamar a esta función (una variable de entorno, un flag de build...) sigue siendo
-/// responsabilidad del proyecto consumidor, pero un error en esa condición ya no puede
-/// exponer `/e2e/prepare` (que puede truncar todas las tablas) ni `/_test/fault` en
-/// un despliegue real.
+/// Este código vive en el módulo de producción a propósito: las suites E2E se ejecutan
+/// contra el mismo artefacto que se despliega (misma imagen, ninguna compilación
+/// específica para E2E), así que el binario tiene que poder montar estas rutas. Lo que
+/// garantiza que nunca estén disponibles en producción es esta barrera, no el módulo.
 ///
-/// - Throws: ``E2EModeError/refusedInProduction`` si `app.environment == .production`.
+/// Solo se activa cuando `app.environment == .testing` (`serve --env testing`,
+/// `VAPOR_ENV=testing` o `Application.make(.testing)`). En cualquier otro entorno lanza
+/// ``E2EModeError/requiresTestingEnvironment(current:)`` en vez de registrar ninguna ruta,
+/// incluido `.development`, el que usa Vapor por defecto cuando el proceso arranca sin
+/// `--env`: un despliegue de producción que olvide declararse como tal tampoco puede
+/// exponerlas. La condición que decide *cuándo* llamar a esta función (una variable de
+/// entorno propia, p. ej.) sigue siendo del proyecto consumidor; un error en ella se
+/// convierte en un fallo de arranque explícito, no en un servidor con estas rutas abiertas.
+///
+/// - Throws: ``E2EModeError/requiresTestingEnvironment(current:)`` si
+///   `app.environment != .testing`.
 public func registerE2EMode(_ app: Application, scenarioFactory: any E2EScenarioFactory) throws {
-    guard app.environment != .production else {
-        throw E2EModeError.refusedInProduction
+    guard app.environment == .testing else {
+        throw E2EModeError.requiresTestingEnvironment(current: app.environment.name)
     }
 
     app.logger.warning("E2E Mode is live (includes /e2e/prepare and /_test/fault). Never use this in production.")

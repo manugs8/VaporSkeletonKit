@@ -110,6 +110,32 @@ struct TestFaultInjectionTests {
         try await app.asyncShutdown()
     }
 
+    /// El middleware vive en `.beginning`, por fuera de `ErrorMiddleware` — un error de
+    /// decodificación que se escapara no llegaría a ser una respuesta HTTP (sobre un
+    /// servidor real, Vapor cerraría la conexión sin responder).
+    @Test("Rejects a malformed body with 400 instead of letting the decoding error escape")
+    func rejectsMalformedBody() async throws {
+        let app = try await Application.make(.testing)
+        do {
+            registerTestFaultInjection(app)
+
+            try await app.testing().test(
+                .POST, "_test/fault",
+                beforeRequest: { req in
+                    req.headers.contentType = .json
+                    req.body = .init(string: #"{"method":"GET","path":"/owners"}"#)
+                },
+                afterResponse: { res async in
+                    #expect(res.status == .badRequest)
+                }
+            )
+        } catch {
+            try? await app.asyncShutdown()
+            throw error
+        }
+        try await app.asyncShutdown()
+    }
+
     @Test("Rejects a delayMilliseconds above the cap with 400, without arming anything")
     func rejectsExcessiveDelay() async throws {
         let app = try await Application.make(.testing)
@@ -184,7 +210,7 @@ struct TestFaultInjectionTests {
     /// efecto alguno, y el fallo debe seguir armado para cuando sí llegue la petición
     /// correcta.
     @Test("Requests that don't match the armed method or path pass through untouched")
-    func passesThoughRequestsThatDontMatch() async throws {
+    func passesThroughRequestsThatDontMatch() async throws {
         let app = try await Application.make(.testing)
         do {
             registerTestFaultInjection(app)

@@ -4,11 +4,10 @@ import Vapor
 import VaporTesting
 @testable import VaporSkeletonKit
 
-/// Ver V10 en el informe de auditoría: la página Swagger UI cargaba
-/// `swagger-ui-dist@5` (sin fijar patch/minor) desde unpkg, sin ningún hash de
-/// integridad (SRI) — un cambio o un CDN comprometido podía servir JS distinto sin que
-/// el navegador lo rechazara. `swaggerUIHandler` ahora fija una versión exacta y añade
-/// `integrity`/`crossorigin` a los dos recursos cargados desde el CDN.
+/// Sin una versión exacta ni un hash de integridad (SRI), un cambio en el CDN — o un
+/// CDN comprometido — podría servir JS distinto sin que el navegador lo rechazara.
+/// `swaggerUIHandler` fija una versión exacta y añade `integrity`/`crossorigin` a los
+/// dos recursos cargados desde el CDN.
 @Suite("OpenAPI Docs Swagger UI CDN")
 struct OpenAPIDocsSwaggerUICDNTests {
     @Test("The CSS and JS CDN tags pin an exact version and carry a matching SRI hash")

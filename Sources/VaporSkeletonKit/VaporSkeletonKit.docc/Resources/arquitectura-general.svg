@@ -24,11 +24,11 @@
   <text x="450" y="200" text-anchor="middle" font-size="13" fill="#3a3a3a">Infraestructura genérica</text>
   <text x="450" y="217" text-anchor="middle" font-size="13" fill="#3a3a3a">sin lógica de negocio</text>
 
-  <!-- TestSupport Locales -->
+  <!-- Soporte de tests -->
   <rect x="620" y="150" width="220" height="80" rx="10" fill="#fff6e8" stroke="#c98a1a" stroke-width="2"/>
-  <text x="730" y="180" text-anchor="middle" font-size="16" font-weight="600" fill="#1a1a1a">TestSupport Locales</text>
-  <text x="730" y="200" text-anchor="middle" font-size="13" fill="#3a3a3a">compartidas (CI/CD)</text>
-  <text x="730" y="217" text-anchor="middle" font-size="13" fill="#3a3a3a">referenciadas por path</text>
+  <text x="730" y="180" text-anchor="middle" font-size="16" font-weight="600" fill="#1a1a1a">Soporte de tests</text>
+  <text x="730" y="200" text-anchor="middle" font-size="13" fill="#3a3a3a">productos …Testing / …E2ESupport</text>
+  <text x="730" y="217" text-anchor="middle" font-size="13" fill="#3a3a3a">solo en targets de test</text>
 
   <!-- both feed the running Application -->
   <line x1="170" y1="230" x2="400" y2="290" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
@@ -38,13 +38,13 @@
   <text x="450" y="316" text-anchor="middle" font-size="16" font-weight="600" fill="#1a1a1a">Application de Vapor en ejecución</text>
   <text x="450" y="336" text-anchor="middle" font-size="13" fill="#3a3a3a">rutas REST + servidor MCP montado, ambos autenticados igual</text>
 
-  <!-- Three products of VaporSkeletonKit -->
+  <!-- The three base products of VaporSkeletonKit -->
   <line x1="450" y1="230" x2="450" y2="270" stroke="#3b6fd4" stroke-width="2"/>
   <line x1="450" y1="270" x2="220" y2="410" stroke="#3b6fd4" stroke-width="2" marker-end="url(#arrowblue)"/>
   <line x1="450" y1="270" x2="450" y2="410" stroke="#3b6fd4" stroke-width="2" marker-end="url(#arrowblue)"/>
   <line x1="450" y1="270" x2="680" y2="410" stroke="#3b6fd4" stroke-width="2" marker-end="url(#arrowblue)"/>
 
-  <text x="450" y="392" text-anchor="middle" font-size="13" fill="#6a6a6a">tres productos SPM independientes</text>
+  <text x="450" y="392" text-anchor="middle" font-size="13" fill="#6a6a6a">seis productos SPM: los tres base (abajo) y sus equivalentes MCP</text>
 
   <rect x="80" y="410" width="280" height="110" rx="10" fill="#eef4ff" stroke="#3b6fd4" stroke-width="2"/>
   <text x="220" y="435" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a1a">VaporSkeletonKit</text>
@@ -54,7 +54,7 @@
 
   <rect x="370" y="410" width="280" height="110" rx="10" fill="#eef4ff" stroke="#3b6fd4" stroke-width="2"/>
   <text x="510" y="435" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a1a">VaporSkeletonKitTesting</text>
-  <text x="510" y="458" text-anchor="middle" font-size="12" fill="#3a3a3a">withTestApp —</text>
+  <text x="510" y="458" text-anchor="middle" font-size="12" fill="#3a3a3a">withTestApp, withE2EServer —</text>
   <text x="510" y="474" text-anchor="middle" font-size="12" fill="#3a3a3a">tests de integración (VaporTesting)</text>
   <text x="510" y="498" text-anchor="middle" font-size="12" fill="#c98a1a" font-weight="600">solo en el target de tests</text>
 
@@ -64,8 +64,9 @@
   <text x="750" y="474" text-anchor="middle" font-size="12" fill="#3a3a3a">E2EHTTPClient</text>
   <text x="750" y="498" text-anchor="middle" font-size="12" fill="#c98a1a" font-weight="600">sin Vapor — HTTP real</text>
 
-  <text x="450" y="560" text-anchor="middle" font-size="13" fill="#6a6a6a">Sin dependencias entre sí: cada producto se enlaza solo donde hace falta.</text>
+  <text x="450" y="560" text-anchor="middle" font-size="13" fill="#6a6a6a">Dependencias deliberadas y en un solo sentido: cada producto se enlaza solo donde hace falta.</text>
   <text x="450" y="582" text-anchor="middle" font-size="13" fill="#6a6a6a">VaporSkeletonKit nunca importa VaporSkeletonKitTesting ni E2ESupport.</text>
+  <text x="450" y="604" text-anchor="middle" font-size="13" fill="#6a6a6a">Equivalentes MCP: VaporSkeletonKitMCP · VaporSkeletonKitMCPTesting · VaporSkeletonKitMCPE2ESupport</text>
 
   <defs>
     <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">

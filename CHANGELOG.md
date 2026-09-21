@@ -6,12 +6,60 @@ Todos los cambios notables de este paquete se documentan aquí. El formato sigue
 
 ## [Sin publicar]
 
+## [2.0.0] - 2026-09-21
+
 ### Cambiado
 
-- **Incompatible:** `registerE2EMode(_:sceneryFactory:)` ahora lanza
-  `E2EModeError.refusedInProduction` en vez de registrar `/e2e/prepare` y `/_test/fault`
-  cuando `app.environment == .production` — antes no existía ninguna barrera real contra
-  una activación accidental en un despliegue real.
+- **Incompatible:** `registerE2EMode(_:scenarioFactory:)` solo se activa con
+  `app.environment == .testing`; en cualquier otro entorno (incluido `.development`, el
+  que usa Vapor si el proceso arranca sin `--env`) lanza
+  `E2EModeError.requiresTestingEnvironment(current:)` en vez de registrar `/e2e/prepare`
+  y `/_test/fault`. Antes no existía ninguna barrera contra una activación accidental en
+  un despliegue real. La instancia E2E debe arrancar con `--env testing` (o
+  `VAPOR_ENV=testing`).
+- **Incompatible:** `Scenery` se renombra a `Scenario` en toda la API del modo E2E:
+  `E2Escenery` → `E2EScenario`, `SceneryFactoryProtocol` → `E2EScenarioFactory`,
+  `make(scenery:)` → `make(scenario:)`, `registerE2EMode(_:sceneryFactory:)` →
+  `registerE2EMode(_:scenarioFactory:)`. El campo JSON de `POST /e2e/prepare` pasa de
+  `"scenery"` a `"scenario"` (`PrepareScenarioRequest`): los clientes E2E que lo envían
+  deben actualizarse.
+- `post(_:json:as:)`/`get(_:as:)` de `E2EHTTPClient` aceptan cualquier status `2xx`
+  (incluido `201 Created`), no solo `200`.
+- `mountMCPServer` lanza `MCPServerMountError` si dos herramientas comparten `name` o
+  dos recursos comparten `uri`, en vez de dejar inalcanzables los duplicados en
+  silencio.
+- `POST /e2e/prepare` responde `400` (no `500`) cuando la factory rechaza el escenario
+  pedido.
+- `POST /_test/fault` responde `400` si `status` no está en `100...599`, si
+  `delayMilliseconds` no está en `0...30000`, o si el cuerpo no se puede decodificar
+  (antes, esto último cerraba la conexión sin respuesta HTTP).
+- La página `/docs` fija `swagger-ui-dist@5.33.0` con hashes SRI, en vez de cargar
+  `@5` sin verificación de integridad.
+- `withTestApp` restaura las variables de `environment` a su valor previo al terminar.
+
+### Añadido
+
+- `query: [URLQueryItem]` en `E2EHTTPClient.send`/`get`, para query strings reales
+  (con `+` escapado como `%2B`).
+- Licencia MIT (`LICENSE`).
+
+### Corregido
+
+- `VaporSkeletonKitTesting` no declaraba su dependencia de `VaporSkeletonKit`, que usa
+  `withE2EServer` (6 avisos "missing a dependency" en Xcode, y un producto que no
+  enlazaba por sí solo).
+- `/health` y `get_health` ya no hacen *trap* sin ninguna base de datos configurada:
+  responden no sano (`503` en `/health`).
+- `runApp` apaga la `Application` también si `execute()` lanza, no solo `configure`.
+- `docsTitle` se escapa como HTML antes de interpolarse en la página Swagger UI.
+- `E2EHTTPClient` ya no hace *trap* con dos cabeceras de respuesta que solo difieren en
+  mayúsculas/minúsculas.
+- `E2EEnvironment.baseURL` falla con un mensaje legible si `E2E_BASE_URL` no es una URL
+  válida.
+- `withE2EServer` apaga sus `Application` auxiliares si `CREATE`/`DROP DATABASE`
+  fallan, y elimina la base de datos temporal aunque falle el apagado del servidor.
+- Documentación: ejemplos que no compilaban, módulos equivocados, afirmaciones falsas
+  sobre CI y `E2E_MODE`, y avisos del catálogo DocC.
 
 ## [1.3.5] - 2026-09-20
 
@@ -78,7 +126,8 @@ Extracción inicial desde `BackendSkeleton`:
   (`VaporSkeletonKitE2ESupport`).
 - Catálogo DocC en español con artículos y tutoriales.
 
-[Sin publicar]: https://github.com/manugs8/VaporSkeletonKit/compare/1.3.5...main
+[Sin publicar]: https://github.com/manugs8/VaporSkeletonKit/compare/2.0.0...main
+[2.0.0]: https://github.com/manugs8/VaporSkeletonKit/compare/1.3.5...2.0.0
 [1.3.5]: https://github.com/manugs8/VaporSkeletonKit/compare/1.3.4...1.3.5
 [1.3.1] - [1.3.4]: https://github.com/manugs8/VaporSkeletonKit/compare/1.3.0...1.3.4
 [1.3.0]: https://github.com/manugs8/VaporSkeletonKit/compare/1.2.1...1.3.0

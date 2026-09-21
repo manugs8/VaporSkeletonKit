@@ -5,27 +5,28 @@ import Vapor
 
 @testable import VaporSkeletonKit
 
-/// Ver C1/C2 y A1/A2 en `docs/InformeDeAuditoria.md`: `registerE2EMode` no tenía
-/// ninguna barrera real contra activarse en producción, pese a lo que la
-/// documentación afirmaba; y `Scenery` (nombre de dominio incorrecto en inglés) se
-/// renombró a `Scenario` en toda la API pública, incluido el campo JSON.
-///
 /// `.serialized`: los tests de `reset:` migran/revierten la misma tabla
 /// (`e2e_mode_reset_widgets`) contra el Postgres real y compartido de esta suite — en
 /// paralelo se pisarían entre sí en `_fluent_migrations`.
 @Suite("E2E Mode", .serialized)
 struct E2EModeTests {
-    @Test("Refuses to activate when app.environment is production")
-    func refusesInProduction() async throws {
-        let app = try await Application.make(.production)
-        #expect(throws: E2EModeError.refusedInProduction) {
+    /// La barrera es *fail-closed*: no basta con no ser `.production`. `development` es
+    /// el entorno que usa Vapor cuando el proceso arranca sin `--env`, así que un
+    /// despliegue de producción que olvide declararse como tal caería ahí.
+    @Test(
+        "Refuses to activate in any environment other than testing",
+        arguments: ["production", "development", "staging"]
+    )
+    func refusesOutsideTesting(environmentName: String) async throws {
+        let app = try await Application.make(Environment(name: environmentName))
+        #expect(throws: E2EModeError.requiresTestingEnvironment(current: environmentName)) {
             try registerE2EMode(app, scenarioFactory: StubScenarioFactory())
         }
         try await app.asyncShutdown()
     }
 
-    @Test("Still activates (fault injection reachable) outside production")
-    func activatesOutsideProduction() async throws {
+    @Test("Activates (fault injection reachable) in the testing environment")
+    func activatesInTesting() async throws {
         let app = try await Application.make(.testing)
         do {
             try registerE2EMode(app, scenarioFactory: StubScenarioFactory())
@@ -73,11 +74,10 @@ struct E2EModeTests {
         try await app.asyncShutdown()
     }
 
-    /// Ver V12 en el informe de auditoría: cuando `scenarioFactory.make(scenario:)`
-    /// lanza (p. ej. porque el identificador recibido no corresponde a ningún
-    /// escenario conocido), Vapor lo trataba como un error interno no manejado y
-    /// devolvía 500 — para un dato de entrada inválido enviado por el propio cliente,
-    /// que debería ser un 400.
+    /// Cuando `scenarioFactory.make(scenario:)` lanza (p. ej. porque el identificador
+    /// recibido no corresponde a ningún escenario conocido), es un dato de entrada
+    /// inválido enviado por el propio cliente: 400, no el 500 que Vapor daría ante un
+    /// error que no es `AbortError`.
     @Test("POST /e2e/prepare returns 400 (not 500) when the factory rejects an unknown scenario")
     func returns400ForUnknownScenario() async throws {
         let app = try await Application.make(.testing)
@@ -100,10 +100,6 @@ struct E2EModeTests {
         try await app.asyncShutdown()
     }
 
-    /// Ver "registerE2EMode / POST /e2e/prepare" en "Tests que faltan" de
-    /// `docs/InformeDeAuditoria.md`: `reset: true` nunca se había probado contra una
-    /// base de datos real — solo que la petición despachaba al `scenarioFactory`.
-    ///
     /// `hasRealPostgresConfigured`/`dbSkipReason`: definidos en `HealthRouteTests.swift`
     /// (mismo target) — una única política de skip para toda esta suite de tests, en
     /// vez de que cada fichero repita su propio criterio.

@@ -54,7 +54,15 @@ struct TestFaultInjectionMiddleware: AsyncMiddleware {
         if path == Self.controlPath {
             switch request.method {
             case .POST:
-                let armRequest = try request.content.decode(ArmRequest.self)
+                // Este middleware se instala en `.beginning`, por fuera de ErrorMiddleware:
+                // un error que se escape de aquí no se convierte en respuesta HTTP, sino
+                // que Vapor cierra la conexión. Un cuerpo malformado es un 400, no eso.
+                let armRequest: ArmRequest
+                do {
+                    armRequest = try request.content.decode(ArmRequest.self)
+                } catch {
+                    return Self.badRequest("Invalid fault request body: \(error)")
+                }
                 guard (100...599).contains(armRequest.status) else {
                     return Self.badRequest("status must be in 100...599, got \(armRequest.status).")
                 }
