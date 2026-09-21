@@ -103,13 +103,15 @@ struct E2EModeTests {
     /// Ver "registerE2EMode / POST /e2e/prepare" en "Tests que faltan" de
     /// `docs/InformeDeAuditoria.md`: `reset: true` nunca se había probado contra una
     /// base de datos real — solo que la petición despachaba al `scenarioFactory`.
-    @Test("POST /e2e/prepare with reset:true actually truncates application tables")
+    ///
+    /// `hasRealPostgresConfigured`/`dbSkipReason`: definidos en `HealthRouteTests.swift`
+    /// (mismo target) — una única política de skip para toda esta suite de tests, en
+    /// vez de que cada fichero repita su propio criterio.
+    @Test(
+        "POST /e2e/prepare with reset:true actually truncates application tables",
+        .enabled(if: hasRealPostgresConfigured, dbSkipReason)
+    )
     func resetTrueTruncatesRealData() async throws {
-        guard ProcessInfo.processInfo.environment["CI"] == "true"
-            || ProcessInfo.processInfo.environment["DATABASE_URL"] != nil
-        else {
-            return
-        }
         let app = try await Application.make(.testing)
         do {
             try configureTestDatabase(app)
@@ -147,13 +149,11 @@ struct E2EModeTests {
         try await app.asyncShutdown()
     }
 
-    @Test("POST /e2e/prepare with reset:false leaves application tables untouched")
+    @Test(
+        "POST /e2e/prepare with reset:false leaves application tables untouched",
+        .enabled(if: hasRealPostgresConfigured, dbSkipReason)
+    )
     func resetFalseLeavesDataUntouched() async throws {
-        guard ProcessInfo.processInfo.environment["CI"] == "true"
-            || ProcessInfo.processInfo.environment["DATABASE_URL"] != nil
-        else {
-            return
-        }
         let app = try await Application.make(.testing)
         do {
             try configureTestDatabase(app)

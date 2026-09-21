@@ -9,13 +9,11 @@ import VaporSkeletonKitTesting
 
 @Suite("With E2E Server (Dynamic Database)")
 struct WithE2EServerTests {
-    @Test("Arranca el servidor en un puerto efímero aislado y con BD generada dinámicamente UUID")
+    @Test(
+        "Arranca el servidor en un puerto efímero aislado y con BD generada dinámicamente UUID",
+        .enabled(if: hasRealPostgresConfigured, dbSkipReason)
+    )
     func bindsEphemeralPortAndUsesDynamicDatabase() async throws {
-        guard hasRealPostgresConfigured else {
-            print("Skipping E2E server test as no real Postgres connection is configured.")
-            return
-        }
-
         // Ejecutamos pasándole la BD dinámica por parámetro
         try await withE2EServer(
             masterConfig: testMasterConfig(),
@@ -39,10 +37,11 @@ struct WithE2EServerTests {
     /// Ver "withE2EServer" en "Tests que faltan" de `docs/InformeDeAuditoria.md`: el
     /// único test existente nunca comprobaba lo que justifica que `withE2EServer`
     /// exista — que la BD dinámica se elimina de verdad, en éxito y en fallo.
-    @Test("Drops the ephemeral database once the test body finishes successfully")
+    @Test(
+        "Drops the ephemeral database once the test body finishes successfully",
+        .enabled(if: hasRealPostgresConfigured, dbSkipReason)
+    )
     func dropsDatabaseOnSuccess() async throws {
-        guard hasRealPostgresConfigured else { return }
-
         var capturedDatabaseName = ""
         try await withE2EServer(
             masterConfig: testMasterConfig(),
@@ -59,10 +58,11 @@ struct WithE2EServerTests {
         #expect(!stillExists)
     }
 
-    @Test("Drops the ephemeral database even when the test body throws")
+    @Test(
+        "Drops the ephemeral database even when the test body throws",
+        .enabled(if: hasRealPostgresConfigured, dbSkipReason)
+    )
     func dropsDatabaseOnFailure() async throws {
-        guard hasRealPostgresConfigured else { return }
-
         struct BoomError: Error {}
         var capturedDatabaseName = ""
 
@@ -86,10 +86,11 @@ struct WithE2EServerTests {
     /// Dos invocaciones concurrentes reciben cada una su propia base de datos (vía
     /// UUID) y su propio puerto (vía `port: 0`) — insertar en una no debe ser visible
     /// desde la otra, y ambas deben completarse sin pisarse.
-    @Test("Two concurrent invocations get fully isolated databases and ports")
+    @Test(
+        "Two concurrent invocations get fully isolated databases and ports",
+        .enabled(if: hasRealPostgresConfigured, dbSkipReason)
+    )
     func isolatesConcurrentInvocations() async throws {
-        guard hasRealPostgresConfigured else { return }
-
         async let first = runIsolatedInsertAndCount(label: "first")
         async let second = runIsolatedInsertAndCount(label: "second")
         let (firstResult, secondResult) = try await (first, second)
@@ -159,9 +160,15 @@ private struct CreateIsolationMarker: AsyncMigration {
     }
 }
 
-private var hasRealPostgresConfigured: Bool {
+/// Política de skip unificada para toda suite de este target que necesite un Postgres
+/// real (aquí y en `WithTestAppTests.swift`) — ver "Calidad de los tests existentes"
+/// en `docs/InformeDeAuditoria.md`. `.enabled(if:)` (en vez de un
+/// `guard ... else { return }` dentro del test) hace que Swift Testing reporte estos
+/// tests como *skipped* en vez de como un verde engañoso.
+let hasRealPostgresConfigured =
     ProcessInfo.processInfo.environment["CI"] == "true" || ProcessInfo.processInfo.environment["DATABASE_URL"] != nil
-}
+
+let dbSkipReason: Comment = "Requires a real Postgres connection (set CI=true or DATABASE_URL)."
 
 /// MOCK de las credenciales máster que en un consumidor real vendrían de su propio
 /// `.env.local`/`.env` (ver `PostgresEnvironmentConfig`: esta función nunca lee
