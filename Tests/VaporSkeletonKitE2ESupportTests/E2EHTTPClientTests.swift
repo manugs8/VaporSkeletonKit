@@ -14,7 +14,7 @@ struct E2EHTTPClientTests {
         }
         let recorder = Recorder()
 
-        try await withRunningServer(port: 18091, mount: mountAuthEchoRoute) { baseURL in
+        try await withRunningServer(mount: mountAuthEchoRoute) { baseURL in
             let client = E2EHTTPClient(
                 baseURL: baseURL,
                 authToken: {
@@ -31,7 +31,7 @@ struct E2EHTTPClientTests {
 
     @Test("Attaches the token produced by authToken when authorization is .default")
     func authenticatedRequest() async throws {
-        try await withRunningServer(port: 18092, mount: mountAuthEchoRoute) { baseURL in
+        try await withRunningServer(mount: mountAuthEchoRoute) { baseURL in
             let client = E2EHTTPClient(baseURL: baseURL, authToken: { "abc123" })
             let response = try await client.get("auth-echo", as: AuthEcho.self)
             #expect(response.authorization == "Bearer abc123")
@@ -46,7 +46,7 @@ struct E2EHTTPClientTests {
         }
         let recorder = Recorder()
 
-        try await withRunningServer(port: 18098, mount: mountAuthEchoRoute) { baseURL in
+        try await withRunningServer(mount: mountAuthEchoRoute) { baseURL in
             let client = E2EHTTPClient(
                 baseURL: baseURL,
                 authToken: {
@@ -65,7 +65,7 @@ struct E2EHTTPClientTests {
 
     @Test("post(json:as:) round-trips a JSON body")
     func postRoundTrip() async throws {
-        try await withRunningServer(port: 18093, mount: mountEchoBodyRoute) { baseURL in
+        try await withRunningServer(mount: mountEchoBodyRoute) { baseURL in
             let client = E2EHTTPClient(baseURL: baseURL)
             let response = try await client.post("echo-body", json: Message(text: "hi"), as: Message.self)
             #expect(response == Message(text: "hi"))
@@ -74,7 +74,7 @@ struct E2EHTTPClientTests {
 
     @Test("put(encoding:) sends a PUT with a JSON body")
     func putRoundTrip() async throws {
-        try await withRunningServer(port: 18100, mount: mountEchoMethodAndBodyRoute) { baseURL in
+        try await withRunningServer(mount: mountEchoMethodAndBodyRoute) { baseURL in
             let client = E2EHTTPClient(baseURL: baseURL)
             let response = try await client.put("echo-method-body", encoding: Message(text: "updated"))
             #expect(response.status == 200)
@@ -86,7 +86,7 @@ struct E2EHTTPClientTests {
 
     @Test("Response exposes lower-cased response headers")
     func responseHeaders() async throws {
-        try await withRunningServer(port: 18097, mount: mountCustomHeaderRoute) { baseURL in
+        try await withRunningServer(mount: mountCustomHeaderRoute) { baseURL in
             let client = E2EHTTPClient(baseURL: baseURL)
             let response = try await client.get("custom-header")
             #expect(response.headers["x-custom"] == "value")
@@ -95,7 +95,7 @@ struct E2EHTTPClientTests {
 
     @Test("Doesn't crash when two response headers differ only by case")
     func duplicateCaseInsensitiveHeadersDoNotCrash() async throws {
-        try await withRunningServer(port: 18101, mount: mountDuplicateCaseHeaderRoute) { baseURL in
+        try await withRunningServer(mount: mountDuplicateCaseHeaderRoute) { baseURL in
             let client = E2EHTTPClient(baseURL: baseURL)
             let response = try await client.get("duplicate-header")
             // No crashea; qué valor concreto "gana" entre dos cabeceras que solo
@@ -106,7 +106,7 @@ struct E2EHTTPClientTests {
 
     @Test("send(contentType:) overrides the default application/json Content-Type")
     func customContentType() async throws {
-        try await withRunningServer(port: 18099, mount: mountEchoContentTypeRoute) { baseURL in
+        try await withRunningServer(mount: mountEchoContentTypeRoute) { baseURL in
             let client = E2EHTTPClient(baseURL: baseURL)
             let response = try await client.send(
                 "POST", "echo-content-type", body: Data("plain text".utf8), contentType: "text/plain"
@@ -117,7 +117,7 @@ struct E2EHTTPClientTests {
 
     @Test("Throws unexpectedStatus for a non-200 response")
     func nonSuccessStatus() async throws {
-        try await withRunningServer(port: 18094, mount: mountFailingRoute) { baseURL in
+        try await withRunningServer(mount: mountFailingRoute) { baseURL in
             let client = E2EHTTPClient(baseURL: baseURL)
             await #expect(throws: E2EHTTPError.self) {
                 _ = try await client.get("boom", as: Message.self, authorization: .none)
@@ -127,7 +127,7 @@ struct E2EHTTPClientTests {
 
     @Test("post(json:as:) decodes a 201 Created response, not just 200")
     func postAsAccepts201() async throws {
-        try await withRunningServer(port: 18103, mount: mountCreatedRoute) { baseURL in
+        try await withRunningServer(mount: mountCreatedRoute) { baseURL in
             let client = E2EHTTPClient(baseURL: baseURL)
             let created = try await client.post("items", json: Message(text: "hi"), as: Message.self)
             #expect(created == Message(text: "hi"))
@@ -136,7 +136,7 @@ struct E2EHTTPClientTests {
 
     @Test("get(as:) decodes any 2xx response, not just 200")
     func getAsAccepts2xx() async throws {
-        try await withRunningServer(port: 18104, mount: mountPartialContentRoute) { baseURL in
+        try await withRunningServer(mount: mountPartialContentRoute) { baseURL in
             let client = E2EHTTPClient(baseURL: baseURL)
             let decoded = try await client.get("partial", as: Message.self)
             #expect(decoded == Message(text: "partial"))
@@ -145,7 +145,7 @@ struct E2EHTTPClientTests {
 
     @Test("get(query:) attaches query items as a real query string, not mangled into the path")
     func queryStringIsAttachedCorrectly() async throws {
-        try await withRunningServer(port: 18101, mount: mountEchoQueryRoute) { baseURL in
+        try await withRunningServer(mount: mountEchoQueryRoute) { baseURL in
             let client = E2EHTTPClient(baseURL: baseURL)
             let response = try await client.get(
                 "echo-query", query: [URLQueryItem(name: "filter", value: "x"), URLQueryItem(name: "page", value: "2")]
@@ -156,7 +156,7 @@ struct E2EHTTPClientTests {
 
     @Test("get(query:as:) round-trips query items through the decoding overload too")
     func queryStringWithDecoding() async throws {
-        try await withRunningServer(port: 18102, mount: mountEchoQueryRoute) { baseURL in
+        try await withRunningServer(mount: mountEchoQueryRoute) { baseURL in
             let client = E2EHTTPClient(baseURL: baseURL)
             let response = try await client.get(
                 "echo-query-json", query: [URLQueryItem(name: "q", value: "widgets")], as: Message.self
@@ -171,7 +171,7 @@ struct E2EHTTPClientTests {
     /// una única vez, y volviendo a responder con normalidad después.
     @Test("armFault: a request to the armed route receives the configured status, once")
     func armFaultEndToEnd() async throws {
-        try await withRunningServer(port: 18105, mount: mountArmableFlakyRoute) { baseURL in
+        try await withRunningServer(mount: mountArmableFlakyRoute) { baseURL in
             let client = E2EHTTPClient(baseURL: baseURL)
             try await client.armFault(method: "GET", path: "/flaky", status: 503)
 
