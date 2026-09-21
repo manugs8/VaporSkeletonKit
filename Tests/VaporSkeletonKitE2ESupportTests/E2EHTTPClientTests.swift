@@ -154,6 +154,21 @@ struct E2EHTTPClientTests {
         }
     }
 
+    /// `URLComponents.queryItems` deja `+` sin escapar, y el servidor lo decodifica como
+    /// un espacio — p. ej. el offset de una fecha ISO-8601 (`+02:00`) usada como filtro.
+    @Test("get(query:) preserves a literal + in a query value instead of turning it into a space")
+    func queryStringPreservesPlusSign() async throws {
+        try await withRunningServer(mount: mountEchoQueryRoute) { baseURL in
+            let client = E2EHTTPClient(baseURL: baseURL)
+            let decoded = try await client.get(
+                "echo-query-value",
+                query: [URLQueryItem(name: "from", value: "2026-09-21T10:00:00+02:00")],
+                as: Message.self
+            )
+            #expect(decoded == Message(text: "2026-09-21T10:00:00+02:00"))
+        }
+    }
+
     @Test("get(query:as:) round-trips query items through the decoding overload too")
     func queryStringWithDecoding() async throws {
         try await withRunningServer(mount: mountEchoQueryRoute) { baseURL in
@@ -289,6 +304,10 @@ private func mountEchoQueryRoute(_ app: Application) throws {
     }
     app.get("echo-query-json") { req -> Message in
         Message(text: req.url.query ?? "")
+    }
+    // Decodifica el valor como lo haría un handler real (req.query), no la query cruda.
+    app.get("echo-query-value") { req -> Message in
+        Message(text: try req.query.get(String.self, at: "from"))
     }
 }
 
