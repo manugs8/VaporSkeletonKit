@@ -86,7 +86,16 @@ public func registerE2EMode(_ app: Application, scenarioFactory: any E2EScenario
             }
         }
         
-        let scenario = try scenarioFactory.make(scenario: body.scenario)
+        let scenario: any E2EScenario
+        do {
+            scenario = try scenarioFactory.make(scenario: body.scenario)
+        } catch {
+            // El escenario lo elige el cliente que llama a /e2e/prepare — si la
+            // factory lo rechaza (p. ej. no reconoce el identificador), es un dato de
+            // entrada inválido, no un fallo interno: 400, no el 500 por defecto de
+            // Vapor ante un error no reconocido como AbortError.
+            throw Abort(.badRequest, reason: "Unknown E2E scenario \"\(body.scenario)\": \(error)")
+        }
         try await scenario.apply(req: req)
         
         return .ok

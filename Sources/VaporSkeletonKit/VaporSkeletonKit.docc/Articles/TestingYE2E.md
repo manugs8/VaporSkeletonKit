@@ -185,6 +185,12 @@ func configure(_ app: Application) async throws {
 }
 ```
 
+Si `scenarioFactory.make(scenario:)` rechaza el identificador recibido en
+`POST /e2e/prepare` (porque no reconoce ese nombre de escenario), la ruta responde
+`400 Bad Request` — no el `500` por defecto de Vapor ante un error no reconocido como
+`AbortError`. Es un dato de entrada inválido enviado por el propio cliente E2E, no un
+fallo interno del servidor.
+
 Cuando está habilitado, los clientes E2E como `E2EHTTPClient` ganan la habilidad de preparar un fallo para que cualquier proceso (como una app iOS en tests de sistema) reciba un error al consumir un endpoint:
 
 ```swift
