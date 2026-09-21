@@ -31,13 +31,11 @@ struct GetHealthToolTests {
     /// Requiere una base de datos real registrada: `app.healthChecker` decide el
     /// resultado, pero `app.databases.ids().isEmpty` (el único guard) sigue exigiendo
     /// que exista *alguna*, igual que en `HealthRouteTests`.
-    @Test("Reports healthy when the database is reachable")
+    @Test(
+        "Reports healthy when the database is reachable",
+        .enabled(if: hasRealPostgresConfigured, dbSkipReason)
+    )
     func healthyWithRealDatabase() async throws {
-        guard ProcessInfo.processInfo.environment["CI"] == "true"
-            || ProcessInfo.processInfo.environment["DATABASE_URL"] != nil
-        else {
-            return
-        }
         let app = try await Application.make(.testing)
         do {
             try configureTestDatabase(app)
@@ -67,7 +65,13 @@ struct GetHealthToolTests {
     /// (`isHealthy: false` en `structuredContent`), no como un fallo de ejecución de la
     /// herramienta (`isError`): quien llama ha recibido con éxito la respuesta a "¿está
     /// sana la base de datos?", aunque la respuesta sea "no".
-    @Test("Reports unhealthy, without isError, when the checker fails")
+    ///
+    /// Necesita el mismo guard que `healthyWithRealDatabase`: `configureTestDatabase`
+    /// exige un Postgres real aunque el resultado lo decida el stub.
+    @Test(
+        "Reports unhealthy, without isError, when the checker fails",
+        .enabled(if: hasRealPostgresConfigured, dbSkipReason)
+    )
     func unhealthyWhenCheckerFails() async throws {
         let app = try await Application.make(.testing)
         do {
@@ -119,3 +123,12 @@ private struct StubHealthChecker: HealthChecking {
         result
     }
 }
+
+/// Política de skip unificada para toda suite que necesite un Postgres real — ver
+/// "Calidad de los tests existentes" en `docs/InformeDeAuditoria.md`. `.enabled(if:)`
+/// (en vez de un `guard ... else { return }` dentro del test) hace que Swift Testing
+/// reporte estos tests como *skipped* en vez de como un verde engañoso.
+private let hasRealPostgresConfigured =
+    ProcessInfo.processInfo.environment["CI"] == "true" || ProcessInfo.processInfo.environment["DATABASE_URL"] != nil
+
+private let dbSkipReason: Comment = "Requires a real Postgres connection (set CI=true or DATABASE_URL)."

@@ -7,12 +7,11 @@ import VaporTesting
 
 @Suite("Health Route")
 struct HealthRouteTests {
-    @Test("Reports healthy when the database is reachable")
+    @Test(
+        "Reports healthy when the database is reachable",
+        .enabled(if: hasRealPostgresConfigured, dbSkipReason)
+    )
     func healthyWithRealDatabase() async throws {
-        // Skip test if no POSTGRES_URL or CI is set, as it requires a real Postgres
-        guard ProcessInfo.processInfo.environment["CI"] == "true" || ProcessInfo.processInfo.environment["DATABASE_URL"] != nil else {
-            return
-        }
         let app = try await Application.make(.testing)
         do {
             try configureTestDatabase(app)
@@ -33,7 +32,17 @@ struct HealthRouteTests {
     /// Demuestra que la ruta depende solo del protocolo `HealthChecking`, no de una
     /// comprobación de base de datos concreta — el stub inyectado decide el resultado
     /// independientemente de `req.db`.
-    @Test("Reports unhealthy and 503 when the checker fails")
+    ///
+    /// Sigue necesitando `configureTestDatabase(app)` (y por tanto el mismo guard):
+    /// `registerHealthRoute` lee `req.db` incondicionalmente, así que sin ninguna base
+    /// de datos registrada fallaría antes de llegar siquiera al stub. Antes de
+    /// unificar la política de skip (ver "Calidad de los tests existentes" en
+    /// `docs/InformeDeAuditoria.md`) este test no tenía guard — fallaba sin red/Postgres,
+    /// inconsistente con `healthyWithRealDatabase` en el mismo fichero.
+    @Test(
+        "Reports unhealthy and 503 when the checker fails",
+        .enabled(if: hasRealPostgresConfigured, dbSkipReason)
+    )
     func unhealthyWhenCheckerFails() async throws {
         let app = try await Application.make(.testing)
         do {
@@ -113,3 +122,12 @@ private struct StubHealthChecker: HealthChecking {
         result
     }
 }
+
+/// Política de skip unificada para toda suite que necesite un Postgres real — ver
+/// "Calidad de los tests existentes" en `docs/InformeDeAuditoria.md`. `.enabled(if:)`
+/// (en vez de un `guard ... else { return }` dentro del test) hace que Swift Testing
+/// reporte estos tests como *skipped* en vez de como un verde engañoso.
+let hasRealPostgresConfigured =
+    ProcessInfo.processInfo.environment["CI"] == "true" || ProcessInfo.processInfo.environment["DATABASE_URL"] != nil
+
+let dbSkipReason: Comment = "Requires a real Postgres connection (set CI=true or DATABASE_URL)."

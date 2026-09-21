@@ -8,9 +8,19 @@ import VaporSkeletonKitTesting
 // .serialized: varios tests mutan la misma variable de entorno global
 // (VAPOR_SKELETON_KIT_TESTING_FLAG) para comprobar su restauración — en paralelo se
 // pisarían entre sí.
+//
+// Antes de unificar la política de skip (ver "Calidad de los tests existentes" en
+// docs/InformeDeAuditoria.md), esta suite no tenía ningún guard pese a necesitar un
+// Postgres real en cada test (vía configureTestDatabase) — a diferencia de
+// HealthRouteTests/GetHealthToolTests/WithE2EServerTests, fallaba directamente sin
+// red/Postgres en vez de saltarse. `hasRealPostgresConfigured`/`dbSkipReason` están
+// definidos en WithE2EServerTests.swift (mismo target).
 @Suite("With Test App", .serialized)
 struct WithTestAppTests {
-    @Test("Configures, migrates, runs the test body, then reverts and shuts down")
+    @Test(
+        "Configures, migrates, runs the test body, then reverts and shuts down",
+        .enabled(if: hasRealPostgresConfigured, dbSkipReason)
+    )
     func happyPath() async throws {
         var sawApp = false
 
@@ -22,7 +32,10 @@ struct WithTestAppTests {
         #expect(sawApp)
     }
 
-    @Test("Sets the given environment variables before Application.make(.testing) runs")
+    @Test(
+        "Sets the given environment variables before Application.make(.testing) runs",
+        .enabled(if: hasRealPostgresConfigured, dbSkipReason)
+    )
     func setsEnvironment() async throws {
         unsetenv("VAPOR_SKELETON_KIT_TESTING_FLAG")
 
@@ -34,7 +47,10 @@ struct WithTestAppTests {
         }
     }
 
-    @Test("Propagates an error thrown by the test body, after still reverting/shutting down")
+    @Test(
+        "Propagates an error thrown by the test body, after still reverting/shutting down",
+        .enabled(if: hasRealPostgresConfigured, dbSkipReason)
+    )
     func propagatesTestErrors() async throws {
         struct BoomError: Error {}
 
@@ -49,7 +65,10 @@ struct WithTestAppTests {
     /// entorno vía `setenv` para la duración del test, pero nunca las revertía —
     /// contaminando el proceso (y, por tanto, los tests que se ejecutaran después en el
     /// mismo proceso) con el valor de test para siempre.
-    @Test("Unsets a variable that had no previous value, once the body finishes")
+    @Test(
+        "Unsets a variable that had no previous value, once the body finishes",
+        .enabled(if: hasRealPostgresConfigured, dbSkipReason)
+    )
     func restoresPreviouslyUnsetVariable() async throws {
         unsetenv("VAPOR_SKELETON_KIT_TESTING_FLAG")
 
@@ -63,7 +82,10 @@ struct WithTestAppTests {
         #expect(ProcessInfo.processInfo.environment["VAPOR_SKELETON_KIT_TESTING_FLAG"] == nil)
     }
 
-    @Test("Restores a variable's previous value, once the body finishes")
+    @Test(
+        "Restores a variable's previous value, once the body finishes",
+        .enabled(if: hasRealPostgresConfigured, dbSkipReason)
+    )
     func restoresPreviousVariableValue() async throws {
         setenv("VAPOR_SKELETON_KIT_TESTING_FLAG", "original", 1)
 
@@ -78,7 +100,10 @@ struct WithTestAppTests {
         unsetenv("VAPOR_SKELETON_KIT_TESTING_FLAG")
     }
 
-    @Test("Restores the environment even when the test body throws")
+    @Test(
+        "Restores the environment even when the test body throws",
+        .enabled(if: hasRealPostgresConfigured, dbSkipReason)
+    )
     func restoresEnvironmentWhenBodyThrows() async throws {
         struct BoomError: Error {}
         unsetenv("VAPOR_SKELETON_KIT_TESTING_FLAG")
