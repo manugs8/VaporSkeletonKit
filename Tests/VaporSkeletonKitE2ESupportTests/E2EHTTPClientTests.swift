@@ -1,5 +1,7 @@
+import Foundation
 import Testing
 import Vapor
+import VaporSkeletonKit
 import VaporSkeletonKitE2ESupport
 
 @Suite("E2E HTTP Client")
@@ -162,6 +164,43 @@ struct E2EHTTPClientTests {
             #expect(response == Message(text: "q=widgets"))
         }
     }
+
+    /// Extremo a extremo, contra un servidor real con el modo E2E activado — no un
+    /// stub del middleware. Prueba el contrato completo cliente↔servidor:
+    /// `armFault` (que hace `POST /_test/fault`), la ruta real viéndose interceptada
+    /// una única vez, y volviendo a responder con normalidad después.
+    @Test("armFault: a request to the armed route receives the configured status, once")
+    func armFaultEndToEnd() async throws {
+        try await withRunningServer(port: 18105, mount: mountArmableFlakyRoute) { baseURL in
+            let client = E2EHTTPClient(baseURL: baseURL)
+            try await client.armFault(method: "GET", path: "/flaky", status: 503)
+
+            let faulted = try await client.get("flaky", authorization: .none)
+            #expect(faulted.status == 503)
+
+            let afterward = try await client.get("flaky", authorization: .none)
+            #expect(afterward.status == 200)
+        }
+    }
+
+    /// `session.data(for:)` no siempre devuelve un `HTTPURLResponse` — un `file://`
+    /// nunca lo es. `send(...)` debe reportarlo como ``E2EHTTPError/unexpectedStatus``
+    /// con status `-1` en vez de forzar el cast y crashear.
+    @Test("Throws unexpectedStatus(-1, ...) when the response isn't an HTTPURLResponse")
+    func nonHTTPResponseYieldsStatusMinusOne() async throws {
+        let directory = FileManager.default.temporaryDirectory
+        let fileName = "e2ehttpclient-non-http-\(UUID().uuidString).txt"
+        try Data("not a real HTTP server".utf8).write(to: directory.appendingPathComponent(fileName))
+        defer { try? FileManager.default.removeItem(at: directory.appendingPathComponent(fileName)) }
+
+        let client = E2EHTTPClient(baseURL: directory)
+        do {
+            _ = try await client.get(fileName, authorization: .none)
+            Issue.record("Expected E2EHTTPError.unexpectedStatus")
+        } catch let E2EHTTPError.unexpectedStatus(status, _) {
+            #expect(status == -1)
+        }
+    }
 }
 
 private struct MethodAndBody: Content {
@@ -250,5 +289,16 @@ private func mountEchoQueryRoute(_ app: Application) throws {
     }
     app.get("echo-query-json") { req -> Message in
         Message(text: req.url.query ?? "")
+    }
+}
+
+private func mountArmableFlakyRoute(_ app: Application) throws {
+    try registerE2EMode(app, scenarioFactory: UnusedScenarioFactory())
+    app.get("flaky") { _ in Response(status: .ok) }
+}
+
+private struct UnusedScenarioFactory: E2EScenarioFactory {
+    func make(scenario: String) throws -> any E2EScenario {
+        fatalError("armFaultEndToEnd doesn't exercise /e2e/prepare")
     }
 }
