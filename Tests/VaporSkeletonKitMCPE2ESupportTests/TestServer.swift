@@ -8,8 +8,7 @@ import Vapor
 /// escuchando — todo el sentido de ambos tipos es hablar HTTP real, no el despacho de
 /// peticiones en proceso de `VaporTesting`. Un puerto efímero (`port: 0`, igual que
 /// `withE2EServer`) en vez de uno fijo por test evita colisiones de bind cuando varios
-/// tests de este fichero corren en paralelo — ver "Puertos fijos hardcodeados" en la
-/// sección "Calidad de los tests existentes" de `docs/InformeDeAuditoria.md`.
+/// tests de este fichero corren en paralelo.
 func withRunningServer(
     mount: (Application) throws -> Void,
     test: (URL) async throws -> Void

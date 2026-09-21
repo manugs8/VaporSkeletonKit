@@ -9,12 +9,9 @@ import VaporSkeletonKitTesting
 // (VAPOR_SKELETON_KIT_TESTING_FLAG) para comprobar su restauración — en paralelo se
 // pisarían entre sí.
 //
-// Antes de unificar la política de skip (ver "Calidad de los tests existentes" en
-// docs/InformeDeAuditoria.md), esta suite no tenía ningún guard pese a necesitar un
-// Postgres real en cada test (vía configureTestDatabase) — a diferencia de
-// HealthRouteTests/GetHealthToolTests/WithE2EServerTests, fallaba directamente sin
-// red/Postgres en vez de saltarse. `hasRealPostgresConfigured`/`dbSkipReason` están
-// definidos en WithE2EServerTests.swift (mismo target).
+// Todos los tests necesitan un Postgres real (vía configureTestDatabase), así que
+// llevan el guard `hasRealPostgresConfigured`/`dbSkipReason`, definido en
+// WithE2EServerTests.swift (mismo target).
 @Suite("With Test App", .serialized)
 struct WithTestAppTests {
     @Test(
@@ -61,10 +58,8 @@ struct WithTestAppTests {
         }
     }
 
-    /// Ver V11 en el informe de auditoría: `withTestApp` establecía variables de
-    /// entorno vía `setenv` para la duración del test, pero nunca las revertía —
-    /// contaminando el proceso (y, por tanto, los tests que se ejecutaran después en el
-    /// mismo proceso) con el valor de test para siempre.
+    /// `setenv` no revierte solo: sin restaurar, el valor de test contaminaría el
+    /// proceso (y los tests que se ejecuten después en él) para siempre.
     @Test(
         "Unsets a variable that had no previous value, once the body finishes",
         .enabled(if: hasRealPostgresConfigured, dbSkipReason)

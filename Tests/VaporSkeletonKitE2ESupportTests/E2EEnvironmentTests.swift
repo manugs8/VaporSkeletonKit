@@ -3,11 +3,9 @@ import Testing
 
 @testable import VaporSkeletonKitE2ESupport
 
-/// Ver V3 en `docs/InformeDeAuditoria.md`: `E2EEnvironment.baseURL` hacía force-unwrap
-/// de una `E2E_BASE_URL` mal formada sin ningún diagnóstico legible. Los dos casos que
-/// no crashean (sin definir / válida) se cubren aquí; el caso mal formado ahora falla
-/// con un `fatalError` con mensaje claro en vez de un `!` desnudo — no verificable con
-/// un test normal, ya que termina el proceso.
+/// Los dos casos que no crashean (sin definir / válida) se cubren aquí; una
+/// `E2E_BASE_URL` mal formada falla con un `fatalError` con mensaje claro — no
+/// verificable con un test normal, ya que termina el proceso.
 ///
 /// `.serialized`: ambos tests mutan la variable de entorno global `E2E_BASE_URL` — sin
 /// serializar, Swift Testing los ejecuta en paralelo por defecto y se pisan entre sí.

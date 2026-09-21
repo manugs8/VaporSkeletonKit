@@ -4,10 +4,10 @@ import Vapor
 import VaporTesting
 @testable import VaporSkeletonKit
 
-/// Ver V9 en el informe de auditoría: `docsTitle` se interpolaba en crudo dentro del
-/// `<title>` de la página Swagger UI. Un proyecto consumidor que derive ese título de
-/// algo no del todo estático (nombre de entorno, configuración externa...) podía acabar
-/// inyectando HTML/JS en una página servida por el propio backend.
+/// `docsTitle` se interpola dentro del `<title>` de la página Swagger UI. Un proyecto
+/// consumidor que derive ese título de algo no del todo estático (nombre de entorno,
+/// configuración externa...) no debe poder inyectar HTML/JS en una página servida por
+/// el propio backend.
 @Suite("OpenAPI Docs Routes")
 struct OpenAPIDocsRoutesTests {
     @Test("GET /docs HTML-escapes a title containing markup, instead of injecting it raw")
