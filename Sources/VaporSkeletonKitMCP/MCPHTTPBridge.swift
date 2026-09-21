@@ -1,6 +1,26 @@
 import MCP
 import Vapor
 
+/// Un fallo al intentar montar un servidor MCP con `tools`/`resources` mal formados.
+public enum MCPServerMountError: Error, CustomStringConvertible, Sendable, Equatable {
+    /// Dos o más `MCPTool` comparten el mismo `name`.
+    case duplicateToolName(String)
+
+    /// Dos o más `MCPResource` comparten la misma `uri`.
+    case duplicateResourceURI(String)
+
+    public var description: String {
+        switch self {
+        case .duplicateToolName(let name):
+            return "Multiple MCPTool values share the name \"\(name)\" — tools/call would " +
+                "only ever reach the first one registered."
+        case .duplicateResourceURI(let uri):
+            return "Multiple MCPResource values share the uri \"\(uri)\" — resources/read " +
+                "would only ever reach the first one registered."
+        }
+    }
+}
+
 /// Monta un servidor MCP en `POST/GET/DELETE <path>` (`/mcp` por defecto), haciendo de
 /// puente entre los tipos HTTP de Vapor y los tipos `MCP.HTTPRequest`/`HTTPResponse`,
 /// agnósticos de framework, que usa `StatelessHTTPServerTransport`.
@@ -22,6 +42,10 @@ import Vapor
 ///   - tools: Las herramientas a exponer vía `tools/list`/`tools/call`.
 ///   - resources: Los recursos a exponer vía `resources/list`/`resources/read`.
 ///   - path: La ruta sobre la que montar el servidor. Por defecto, `"mcp"`.
+/// - Throws: ``MCPServerMountError`` si dos `tools` comparten `name`, o dos `resources`
+///   comparten `uri` — sin esta comprobación, `MCPToolDispatch`/`MCPResourceDispatch`
+///   despachan en silencio al primero que coincida por `first(where:)`, y el resto
+///   quedan inalcanzables sin ningún aviso.
 public func mountMCPServer(
     _ app: Application,
     name: String,
@@ -31,6 +55,8 @@ public func mountMCPServer(
     resources: [any MCPResource] = [],
     path: PathComponent = "mcp"
 ) throws {
+    try validateUniqueness(tools: tools, resources: resources)
+
     let handler: (@Sendable (Vapor.Request) async throws -> Vapor.Response) = { req in
         try await handleMCPRequest(
             req, name: name, version: version, instructions: instructions, tools: tools, resources: resources)
@@ -43,6 +69,22 @@ public func mountMCPServer(
         "MCP server mounted at /\(path.description)",
         metadata: ["tools": .array(tools.map { .string($0.name) })]
     )
+}
+
+private func validateUniqueness(tools: [any MCPTool], resources: [any MCPResource]) throws {
+    var seenToolNames: Set<String> = []
+    for tool in tools {
+        guard seenToolNames.insert(tool.name).inserted else {
+            throw MCPServerMountError.duplicateToolName(tool.name)
+        }
+    }
+
+    var seenResourceURIs: Set<String> = []
+    for resource in resources {
+        guard seenResourceURIs.insert(resource.uri).inserted else {
+            throw MCPServerMountError.duplicateResourceURI(resource.uri)
+        }
+    }
 }
 
 /// Maneja una única petición HTTP contra la ruta MCP levantando un par

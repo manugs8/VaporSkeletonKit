@@ -145,6 +145,10 @@ que el modelo llamador pueda razonablemente ver y ante el que pueda reaccionar
 (`invalidArgument`, `notFound`, `database`, `internalError`) — se reportan como un
 resultado de herramienta con `isError: true`, no como un fallo a nivel de transporte.
 
+`mountMCPServer` lanza `MCPServerMountError` si dos `tools` comparten `name`, o dos
+`resources` comparten `uri` — sin esta comprobación, el despacho interno elegiría el
+primero en silencio y el resto quedarían inalcanzables sin ningún aviso.
+
 ## Modo E2E (rutas backdoor)
 
 `registerE2EMode(_:sceneryFactory:)` monta dos rutas de apoyo para suites E2E: inyección
