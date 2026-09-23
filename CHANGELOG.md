@@ -6,6 +6,8 @@ Todos los cambios notables de este paquete se documentan aquí. El formato sigue
 
 ## [Sin publicar]
 
+## [2.1.0] - 2026-09-23
+
 ### Añadido
 
 - `E2EScenarioLifecycle`/`withPersistentServer(_:_:)` (`VaporSkeletonKitE2ESupport`)
@@ -24,6 +26,13 @@ Todos los cambios notables de este paquete se documentan aquí. El formato sigue
   alguna middleware de test le entregue. Mismo patrón que `withTestApp`/`withE2EServer`:
   `configure` es responsabilidad del proyecto consumidor, sin asumir ningún `configure(_:)`
   en concreto.
+
+### Interno
+
+- Documentación de cómo ejecutar en local los tests que necesitan Postgres real cuando
+  el Postgres local no tiene el rol `postgres` que el kit asume por defecto — vía
+  `.env.testing` (terminal) o el test plan por defecto del paquete (Xcode), ninguno de
+  los dos versionado.
 
 ## [2.0.1] - 2026-09-21
 
@@ -159,7 +168,8 @@ Extracción inicial desde `BackendSkeleton`:
   (`VaporSkeletonKitE2ESupport`).
 - Catálogo DocC en español con artículos y tutoriales.
 
-[Sin publicar]: https://github.com/manugs8/VaporSkeletonKit/compare/2.0.1...main
+[Sin publicar]: https://github.com/manugs8/VaporSkeletonKit/compare/2.1.0...main
+[2.1.0]: https://github.com/manugs8/VaporSkeletonKit/compare/2.0.1...2.1.0
 [2.0.1]: https://github.com/manugs8/VaporSkeletonKit/compare/2.0.0...2.0.1
 [2.0.0]: https://github.com/manugs8/VaporSkeletonKit/compare/1.3.5...2.0.0
 [1.3.5]: https://github.com/manugs8/VaporSkeletonKit/compare/1.3.4...1.3.5
