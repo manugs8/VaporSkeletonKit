@@ -51,6 +51,14 @@ let response = try await sendMCP(app, ListTools.request(id: 1, ListTools.Paramet
 let tools = try response.result.get().tools
 ```
 
+`withUnreachableDatabaseServer(configure:_:)` es la variante para el caso contrario: en
+vez de una base de datos real y migrada, arranca la `Application` sin migrar y sin modo
+E2E, contra una base de datos que `configure` apunta deliberadamente a un host/puerto
+inalcanzable — para verificar que el manejo de errores real del proyecto (no una
+middleware de test) convierte una consulta genuinamente fallida en la respuesta que
+promete (normalmente un `500`). Mismo principio de no asumir ningún `configure(_:)`
+concreto que `withTestApp`/`withE2EServer`.
+
 ## E2E: HTTP/MCP real, nunca en proceso
 
 `VaporSkeletonKitE2ESupport` es deliberadamente ligero en dependencias — ni Vapor ni

@@ -18,6 +18,12 @@ Todos los cambios notables de este paquete se documentan aquí. El formato sigue
   contador de referencias — porque en el modelo de "un `.xctestplan` por escenario" que lo
   motiva, cada test plan es su propia invocación de `xcodebuild test`: "una vez por proceso"
   ya significa "una vez por fase".
+- `withUnreachableDatabaseServer(configure:_:)` (`VaporSkeletonKitTesting`) arranca una
+  `Application` real en un puerto efímero, sin migrar y sin modo E2E, para verificar cómo
+  reacciona la app de verdad ante un fallo genuino de base de datos — no un valor que
+  alguna middleware de test le entregue. Mismo patrón que `withTestApp`/`withE2EServer`:
+  `configure` es responsabilidad del proyecto consumidor, sin asumir ningún `configure(_:)`
+  en concreto.
 
 ## [2.0.1] - 2026-09-21
 
