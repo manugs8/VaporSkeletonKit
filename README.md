@@ -385,6 +385,57 @@ La otra forma de activarlos, `DATABASE_URL`, fuerza TLS (es el camino de Neon, v
 de arriba. El usuario debe poder hacer `CREATE`/`DROP DATABASE` (`WithE2EServerTests`
 crea y destruye una base de datos por test).
 
+> [!NOTE]
+> Si ya tienes un Postgres local propio (Postgres.app, Homebrew...) en vez del
+> contenedor de arriba, lo normal es que no tenga ningún rol `postgres` — solo el rol de
+> tu propio usuario del sistema. En ese caso las credenciales por defecto fallan con
+> `role "postgres" does not exist`: crea un `.env.testing` en la raíz del repo (no
+> versionado — cada máquina tiene el suyo, ver `.gitignore`) con un rol real de tu
+> instancia que pueda `CREATE`/`DROP DATABASE`:
+> ```
+> DATABASE_HOST=127.0.0.1
+> DATABASE_USERNAME=tu_usuario
+> DATABASE_PASSWORD=tu_contraseña
+> DATABASE_NAME=postgres
+> CI=true
+> ```
+> El `CI=true` es lo que activa `hasRealPostgresConfigured` (la condición
+> `.enabled(if:)` de `HealthRouteTests`/`E2EModeTests`/`WithTestAppTests`/
+> `WithE2EServerTests`/`GetHealthToolTests`) — sin él, esos tests se saltan
+> deliberadamente, para que `swift test` funcione sin más en cualquier máquina sin
+> Postgres. No conviene ponerlo en un `.env` versionado (activaría ese salto también
+> para quien clone el repo sin Postgres a mano); en el `.env.testing` local de cada
+> quien es donde tiene sentido.
+>
+> Vapor carga `.env.testing` automáticamente al arrancar la primera `Application` en
+> entorno `.testing` — pero solo a partir de ese momento, y de forma asíncrona. Algún
+> test (`WithE2EServerTests`, en concreto) lee `Environment` para construir sus
+> credenciales *antes* de arrancar ninguna `Application`, así que puede ganarle la
+> carrera a esa primera carga si nada ha exportado ya esas variables al proceso.
+> `swift test` en sí no vuelve a leer el fichero por su cuenta, así que expórtalas al
+> shell antes de arrancarlo, en vez de confiar solo en la carga automática de Vapor:
+> ```bash
+> set -a && source .env.testing && set +a
+> CI=true swift test
+> ```
+>
+> **Lanzando los tests desde Xcode** (Test Navigator) en vez de `swift test`: Xcode no
+> lee `.env.testing` ni ningún `source` hecho en una terminal aparte — el proceso de
+> test que lanza hereda el entorno del propio Xcode, no el de tu shell. Edita el test
+> plan por defecto del paquete (`VaporSkeletonKit-Package.xctestplan` — Xcode lo crea
+> la primera vez que tocas esta pantalla) en `Test` → pestaña `Configurations` →
+> `Shared Settings` → `Environment Variables`, con las mismas variables de arriba.
+> Mismo patrón que documenta <doc:TestingYE2E> para `E2EScenarioLifecycle` (un
+> `.xctestplan` cuya Configuration fija variables de entorno), aquí aplicado al test
+> plan por defecto del propio paquete en vez de a uno por escenario.
+>
+> `VaporSkeletonKit-Package.xctestplan` queda fuera de versión (ver `.gitignore`) por
+> la misma razón que `.env.testing`: quedaría con tus credenciales reales en texto
+> plano. Xcode tiende a dejarlo *staged* automáticamente en el commit en curso en
+> cuanto lo crea — revisa `git status` antes de comitear si has tocado esta pantalla,
+> y quítalo del stage (`git restore --staged VaporSkeletonKit-Package.xctestplan`) si
+> aparece.
+
 Este repo no tiene pipeline de CI remoto — consistente con la estrategia "pruebas
 locales primero" de
 [`docs/EstandarDeIngenieria.md`](docs/EstandarDeIngenieria.md#12-pruebas-locales-y-testsupport).
