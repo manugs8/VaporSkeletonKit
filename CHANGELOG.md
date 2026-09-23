@@ -6,6 +6,19 @@ Todos los cambios notables de este paquete se documentan aquí. El formato sigue
 
 ## [Sin publicar]
 
+### Añadido
+
+- `E2EScenarioLifecycle`/`withPersistentServer(_:_:)` (`VaporSkeletonKitE2ESupport`)
+  preparan, una sola vez por proceso, el escenario que una variable de entorno (`E2E_SCENARIO`
+  por defecto — pensada para venir de la Configuration de un `.xctestplan`) declara, contra
+  un servidor E2E persistente ya en ejecución — no uno que este tipo arranque. Deliberadamente
+  agnóstico del tipo de escenario de cada proyecto consumidor: recibe un closure que traduce
+  el `String` bruto a la llamada `/e2e/prepare` concreta de ese proyecto, en vez de asumir
+  ningún tipo generado por `swift-openapi-generator`. Un `Task` perezoso basta — sin actor, sin
+  contador de referencias — porque en el modelo de "un `.xctestplan` por escenario" que lo
+  motiva, cada test plan es su propia invocación de `xcodebuild test`: "una vez por proceso"
+  ya significa "una vez por fase".
+
 ## [2.0.1] - 2026-09-21
 
 ### Añadido

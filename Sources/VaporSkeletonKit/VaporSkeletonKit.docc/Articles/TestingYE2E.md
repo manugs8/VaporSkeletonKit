@@ -126,6 +126,53 @@ resultado), mientras que `E2EMCPClient.connect(...)` lo resuelve una única vez 
 conectar y reutiliza ese mismo token para toda la sesión — coherente con que una
 conexión MCP es de larga duración, a diferencia de una petición REST suelta.
 
+## Un servidor E2E persistente, con un escenario por fase: `E2EScenarioLifecycle`
+
+`withE2EServer` (más abajo) arranca un servidor efímero por test — pensado para una
+suite pequeña. Una suite grande puede chocar con el límite de conexiones del Postgres
+local mucho antes que con cualquier otro cuello de botella: cada `Application` efímera
+abre hasta `maxConnectionsPerEventLoop × event loops` conexiones propias, y Swift Testing
+paraleliza la mayoría de la suite por defecto. Además, el propio E2E existe para simular
+producción — y producción no arranca un servidor por petición, arranca uno y lo deja
+corriendo.
+
+`E2EScenarioLifecycle` prepara, una sola vez por proceso, el escenario que una variable
+de entorno declara — contra un servidor E2E ya en ejecución, arrancado por fuera (a mano,
+o desde un script), nunca por este tipo. Encaja con un patrón concreto: un `.xctestplan`
+de Xcode por escenario, cuya Configuration fija esa variable de entorno vía "Environment
+Variables" — de modo que cambiar de test plan cambia de escenario sin tocar código, y
+cada test plan (cada fase) es su propia invocación de `xcodebuild test`, así que "una vez
+por proceso" ya significa "una vez por fase": no hace falta ningún actor ni contador de
+referencias para coordinar tests concurrentes, a diferencia de un servidor compartido
+*dentro* de un único `swift test`.
+
+Deliberadamente agnóstico del tipo de escenario del proyecto consumidor
+(`Components.Schemas.E2EScenarioName`, generado por `swift-openapi-generator`, es
+distinto en cada uno): recibe un closure que traduce el `String` bruto de la variable de
+entorno a la llamada `/e2e/prepare` concreta de ese proyecto.
+
+```swift
+let scenarioLifecycle = E2EScenarioLifecycle { raw, client in
+    guard let scenario = Components.Schemas.E2EScenarioName(rawValue: raw) else {
+        throw MyOwnUnknownScenarioError(raw)
+    }
+    try await client.prepareScenario(scenario, reset: true)
+}
+
+func withPersistentServer(_ test: (E2EHTTPClient) async throws -> Void) async throws {
+    try await VaporSkeletonKitE2ESupport.withPersistentServer(scenarioLifecycle, test)
+}
+```
+
+Si la variable de entorno no está definida, o el servidor no responde, `wait()` (y por
+tanto `withPersistentServer`) lanza un `E2EPersistentServerError` con un mensaje legible
+— nunca un `fatalError` que tumbe el proceso entero y le impida al resto de tests de esa
+misma fase reportar su propio resultado. Ese fallo controlado es intencional: en el flujo
+de trabajo manual (lanzar un test suelto desde Xcode), si el servidor no está arrancado,
+el test falla con instrucciones claras en vez de intentar arrancarlo por su cuenta — el
+arranque explícito, a mano o desde un script, sigue siendo responsabilidad de quien
+ejecuta los tests, no de este tipo.
+
 ## `withRunningServer`: probando este kit consigo mismo
 
 Los propios tests de `VaporSkeletonKitE2ESupportTests` en este repo necesitan un
