@@ -145,6 +145,9 @@ que la autenticación ya esté adjunta a `app` (p. ej. vía `WorkOSBearerAuth`) 
 llamar a esta función, de modo que REST y MCP compartan la misma comprobación en lugar
 de que MCP reimplemente la suya propia.
 
+Una herramienta que escribe datos declara `annotations` (`readOnlyHint: false`, `destructiveHint`,
+`idempotentHint`) para que el cliente sepa qué hace; sin declararlas se anuncia sin pistas.
+
 Lanza `MCPToolError` desde el `call(arguments:)` de una herramienta para cualquier fallo
 que el modelo llamador pueda razonablemente ver y ante el que pueda reaccionar
 (`invalidArgument`, `notFound`, `database`, `internalError`) — se reportan como un

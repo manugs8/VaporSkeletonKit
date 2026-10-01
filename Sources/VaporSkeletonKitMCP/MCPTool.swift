@@ -24,6 +24,10 @@ public protocol MCPTool: Sendable {
     /// El JSON Schema que describe la salida estructurada de la herramienta, si la hay.
     var outputSchema: Value? { get }
 
+    /// Pistas de comportamiento para el cliente (solo lectura, destructiva, idempotente...).
+    /// Vacías por defecto: una herramienta que no las declara se anuncia sin ellas.
+    var annotations: Tool.Annotations { get }
+
     /// Ejecuta la herramienta con los argumentos dados.
     ///
     /// Lanza ``MCPToolError`` para cualquier fallo que el llamador (un agente LLM)
@@ -35,6 +39,8 @@ public protocol MCPTool: Sendable {
 }
 
 extension MCPTool {
+    public var annotations: Tool.Annotations { nil }
+
     /// El descriptor `Tool` de MCP anunciado por `tools/list`.
     var descriptor: Tool {
         Tool(
@@ -42,6 +48,7 @@ extension MCPTool {
             title: title,
             description: toolDescription,
             inputSchema: inputSchema,
+            annotations: annotations,
             outputSchema: outputSchema
         )
     }

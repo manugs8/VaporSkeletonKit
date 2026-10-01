@@ -1,3 +1,4 @@
+import Foundation
 import MCP
 import Testing
 
@@ -16,6 +17,21 @@ private struct EchoTool: MCPTool {
             throw MCPToolError.invalidArgument("Missing 'text' argument.")
         }
         return CallTool.Result(content: [.text(text: text, annotations: nil, _meta: nil)])
+    }
+}
+
+private struct WriteTool: MCPTool {
+    var name: String { "write" }
+    var title: String? { nil }
+    var toolDescription: String { "Writes something." }
+    var inputSchema: Value { ["type": "object"] }
+    var outputSchema: Value? { nil }
+    var annotations: Tool.Annotations {
+        .init(readOnlyHint: false, destructiveHint: false, idempotentHint: false)
+    }
+
+    func call(arguments: [String: Value]) async throws -> CallTool.Result {
+        CallTool.Result(content: [])
     }
 }
 
@@ -57,6 +73,27 @@ struct MCPServerFactoryTests {
             tools: [EchoTool()]
         )
         #expect(result.isError == true)
+    }
+
+    @Test("A tool that declares annotations announces them in its descriptor")
+    func descriptorCarriesAnnotations() async throws {
+        let annotations = WriteTool().descriptor.annotations
+        #expect(annotations.readOnlyHint == false)
+        #expect(annotations.destructiveHint == false)
+        #expect(annotations.idempotentHint == false)
+    }
+
+    @Test("A tool that declares none is announced without annotations")
+    func descriptorWithoutAnnotationsIsEmpty() async throws {
+        #expect(EchoTool().descriptor.annotations == nil)
+        let json = String(decoding: try JSONEncoder().encode(EchoTool().descriptor), as: UTF8.self)
+        #expect(!json.contains("annotations"))
+    }
+
+    @Test("Annotations reach the wire as part of the tool descriptor")
+    func annotationsAreEncoded() async throws {
+        let json = String(decoding: try JSONEncoder().encode(WriteTool().descriptor), as: UTF8.self)
+        #expect(json.contains("\"readOnlyHint\":false"))
     }
 
     @Test("Reading a known resource returns its contents")

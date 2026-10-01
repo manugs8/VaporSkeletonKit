@@ -6,6 +6,12 @@ Todos los cambios notables de este paquete se documentan aquí. El formato sigue
 
 ## [Sin publicar]
 
+### Añadido
+
+- `MCPTool.annotations` (`Tool.Annotations` del SDK: `readOnlyHint`, `destructiveHint`,
+  `idempotentHint`...) llega al cliente en `tools/list`. Vacío por defecto, así que las
+  herramientas existentes no cambian.
+
 ## [2.1.0] - 2026-09-23
 
 ### Añadido
