@@ -6,6 +6,8 @@ Todos los cambios notables de este paquete se documentan aquí. El formato sigue
 
 ## [Sin publicar]
 
+## [2.2.0] - 2026-10-01
+
 ### Añadido
 
 - `MCPTool.annotations` (`Tool.Annotations` del SDK: `readOnlyHint`, `destructiveHint`,
@@ -174,7 +176,8 @@ Extracción inicial desde `BackendSkeleton`:
   (`VaporSkeletonKitE2ESupport`).
 - Catálogo DocC en español con artículos y tutoriales.
 
-[Sin publicar]: https://github.com/manugs8/VaporSkeletonKit/compare/2.1.0...main
+[Sin publicar]: https://github.com/manugs8/VaporSkeletonKit/compare/2.2.0...main
+[2.2.0]: https://github.com/manugs8/VaporSkeletonKit/compare/2.1.0...2.2.0
 [2.1.0]: https://github.com/manugs8/VaporSkeletonKit/compare/2.0.1...2.1.0
 [2.0.1]: https://github.com/manugs8/VaporSkeletonKit/compare/2.0.0...2.0.1
 [2.0.0]: https://github.com/manugs8/VaporSkeletonKit/compare/1.3.5...2.0.0
