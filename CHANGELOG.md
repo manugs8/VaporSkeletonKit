@@ -164,7 +164,7 @@ Todos los cambios notables de este paquete se documentan aquí. El formato sigue
 
 ## [1.0.0] - 2026-09-19
 
-Extracción inicial desde `BackendSkeleton`:
+Versión inicial:
 
 - Entrypoint de app (`runApp(configure:)`).
 - Comprobaciones de salud (`HealthChecking`, `DatabaseHealthChecker`,
